@@ -133,6 +133,9 @@ export type Env = z.infer<typeof envSchema>;
 
 /** Parse an env-like object. Error messages name the variable but never echo its value. */
 export function parseEnv(source: Record<string, string | undefined>): Env {
+  // On Vercel, fall back to the project's production domain (a Vercel system variable).
+  const vercelHost = source.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (!source.APP_BASE_URL?.trim() && vercelHost) source = { ...source, APP_BASE_URL: `https://${vercelHost}` };
   const result = envSchema.safeParse(source);
   if (!result.success) {
     const lines = result.error.issues.map((i) => `  - ${i.path.join(".") || "(root)"}: ${i.message}`);

@@ -52,6 +52,13 @@ describe("environment validation", () => {
     expect(ok.NODE_ENV).toBe("production");
   });
 
+  it("falls back to Vercel's production domain for APP_BASE_URL", () => {
+    const e = parseEnv({ DATABASE_URL: DB, VERCEL_PROJECT_PRODUCTION_URL: "aangan-voice-agent.vercel.app" });
+    expect(e.APP_BASE_URL).toBe("https://aangan-voice-agent.vercel.app");
+    const explicit = parseEnv({ DATABASE_URL: DB, APP_BASE_URL: "https://x.example", VERCEL_PROJECT_PRODUCTION_URL: "y.vercel.app" });
+    expect(explicit.APP_BASE_URL).toBe("https://x.example");
+  });
+
   it("rejects short secrets", () => {
     expect(() => parseEnv({ DATABASE_URL: DB, VAANI_TOOL_SECRET: "short" })).toThrow(/VAANI_TOOL_SECRET/);
   });
