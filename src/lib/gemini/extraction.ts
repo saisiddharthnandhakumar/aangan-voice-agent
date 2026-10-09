@@ -95,6 +95,8 @@ How to fill the fields:
   operational, guests arriving, a festival). Use YYYY-MM-DD. A month without a day means the
   1st of that month; "three weeks" means today plus 21 days. A possession or handover date is
   NOT a completion date: put it in site_ready_text. Starting dates are not completion dates.
+  Record the person's LATEST position: if they give up or move an earlier deadline ("what if I
+  start after Diwali?") without a new completion date, completion_needed_by is null.
 - volunteered_budget_low_inr / high_inr: ONLY a number the person volunteered, in rupees
   (1.5 lakh = 150000; one number goes in both). "Prefer not to say", "reasonable" or "budget
   bhi hai" without a number means null.

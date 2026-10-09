@@ -5,7 +5,7 @@ Checked on 2026-10-09 against each platform's official docs. Every claim cites i
 
 | Platform | Verdict for the build |
 |---|---|
-| Vaani | Webhooks and the REST API are documented. **Mid-call custom HTTP tools are not.** Mode A/B/C decision needed (§1.10) |
+| Vaani | **Mode A confirmed in the dashboard (2026-10-10):** custom tools exist ("Paste cURL" form). **No call-ID or caller-number variable**, so tool calls are correlated by our own reference (§1.11) |
 | Cal.com | Slots and bookings v2 confirmed. Version headers `2024-09-04` / `2026-02-25`. Slot-taken error UNVERIFIED (§2) |
 | HubSpot (Free CRM) | **10 custom properties total, no custom pipeline, 1,000 contacts. Private-app creation ends 2026-10-26** (§3) |
 | Telegram | Confirmed: sendMessage, editMessageText, URL buttons, HTML escaping (§4) |
@@ -242,3 +242,17 @@ Source for API rate: [usage guidelines](https://developers.hubspot.com/docs/deve
 - **Regions:** `bom1` (Mumbai) and `sin1` exist. Hobby gets 1 function region, set via `vercel.json` `"regions"` (Next's `preferredRegion` is deprecated). Source: [function regions](https://vercel.com/docs/functions/configuring-functions/region).
   - **Recommendation: `sin1`**, next to Neon Singapore. A tool request runs several DB queries, so keeping DB round-trips local matters more than the single Vaani→Vercel hop.
 - **Hobby is non-commercial only.** A deployment that earns anyone money needs **Pro**. Source: [fair use](https://vercel.com/docs/limits/fair-use-guidelines).
+
+### 1.11 Dashboard findings (2026-10-10, checked in the Vaani dashboard by the user via a browser session)
+- **Custom tools exist.** The tool form has a "Paste cURL" button, so mid-call HTTP tools are available. **Mode A stands** and §1.10 is resolved. Phase 3 supplies one cURL command per tool.
+- **Built-in variables:** only date/time variables and `call_mode`. There is **no call ID and no caller-number variable**, so `{{call_id}}` and `{{caller_number}}` in the prompt resolve to nothing.
+  - **Design consequence:**
+    - The first `submit_assessment` creates the call row and returns a short `call_ref`, which the agent passes to `check_availability` and `book_consult`.
+    - The post-call webhook links to that row by **time window** (the tool calls fall between the call's start and end) **plus the caller number** from call history when it exists.
+    - An ambiguous match (two overlapping calls) is flagged for manual linking on the dashboard.
+    - At ~200 calls a month, overlaps should be rare.
+  - **`call_mode`:** the agent passes `{{call_mode}}` in every tool body, so a web/WebRTC test call can be marked `is_test` at the first tool call. Its exact values (e.g. "web" vs "phone") are **UNVERIFIED** until a test call is logged in `tool_calls`.
+- **Language:** one language per agent, currently English. Hindi, Marathi and mixed callers need a separate agent or a language choice. V2 is a Should, so this is left open for Nikhil.
+- **Cost:** the Overview tab estimates ₹5.60 per minute, so `VAANI_COST_PER_MIN_INR=5.6`.
+- **Configured:** greeting (AI and recording disclosure), goodbye line, 10-minute maximum call. The system prompt is pasted. A text-chat test gave only the pricing line under pressure (claiming to be Nikhil); a voice test is still to do.
+- **Not configured yet:** the three tools and the webhook (they need the Vercel URL), and the phone number (paid; the office number gets linked later).
