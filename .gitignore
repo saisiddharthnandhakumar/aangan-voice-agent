@@ -54,3 +54,4 @@ enquiries/*
 !enquiries/README.md
 # Local scratch and eval output
 .eval-out/
+docs/vaani/system_prompt.txt
