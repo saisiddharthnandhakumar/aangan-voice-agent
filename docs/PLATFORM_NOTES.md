@@ -9,7 +9,7 @@ Checked on 2026-10-09 against each platform's official docs. Every claim cites i
 | Cal.com | Slots and bookings v2 confirmed. Version headers `2024-09-04` / `2026-02-25`. Slot-taken error UNVERIFIED (§2) |
 | HubSpot (Free CRM) | **10 custom properties total, no custom pipeline, 1,000 contacts. Private-app creation ends 2026-10-26** (§3) |
 | Telegram | Confirmed: sendMessage, editMessageText, URL buttons, HTML escaping (§4) |
-| Gemini | `gemini-3.8-flash` (GA). Structured JSON via `@google/genai`. Field names UNVERIFIED (§5) |
+| Gemini | `gemini-3.8-flash` (GA). Structured JSON via `@google/genai` 2.28, field names verified in typings (§5). Live call not yet run (no key) |
 | Neon | Pooled/direct, neon-http driver, Singapore region, Free scale-to-zero can't be disabled (§6) |
 | Vercel | Next 16, `after()`, region `sin1`, Hobby cron once a day, **Hobby non-commercial** (§7) |
 
@@ -201,7 +201,7 @@ Source for API rate: [usage guidelines](https://developers.hubspot.com/docs/deve
 - **Model:** `GEMINI_MODEL=gemini-3.8-flash` (GA since 2026-09-02, 1M context, 64k max output). The cheaper fallback is `gemini-3.5-flash-lite` (GA). `gemini-2.0-flash` is shut down, and Google recommends against 2.5 Flash for new projects. Sources: [models](https://ai.google.dev/gemini-api/docs/models), [deprecations](https://ai.google.dev/gemini-api/docs/deprecations), [changelog](https://ai.google.dev/gemini-api/docs/changelog), [latest model](https://ai.google.dev/gemini-api/docs/generate-content/latest-model).
 - **SDK:** `@google/genai`. `@google/generativeai` is deprecated. Source: [libraries](https://ai.google.dev/gemini-api/docs/libraries).
 - **API surface:** Google now leads with the **Interactions API**. `generateContent` sits under "Legacy" but has no deprecation date, and both get the same configuration. We use `generateContent` and keep it behind one adapter. Sources: [structured output](https://ai.google.dev/gemini-api/docs/generate-content/structured-output), [what's new in 3.5](https://ai.google.dev/gemini-api/docs/generate-content/whats-new-gemini-3.5).
-- **Structured output:** the current JS example uses `config.responseFormat.text = { mimeType: "application/json", schema: <JSON Schema> }`. **UNVERIFIED** whether `responseMimeType` + `responseJsonSchema` are the right field names in the installed SDK version, so the Phase 4 build checks the SDK typings.
+- **Structured output:** the docs' JS example uses `config.responseFormat.text = {...}` (Interactions API). **Verified in Phase 2 against the installed `@google/genai` 2.28.0 typings:** `generateContent` takes `config.responseMimeType: "application/json"` + `config.responseJsonSchema`, `thinkingConfig.thinkingLevel` (`LOW`), `abortSignal`, and `httpOptions.timeout` / `httpOptions.retryOptions`. `usageMetadata` has `promptTokenCount`, `candidatesTokenCount`, `thoughtsTokenCount`. Used in `src/lib/gemini/client.ts`.
   - Supported schema keywords: type (including `["string","null"]` for nullable), properties, required, additionalProperties, enum, format date/date-time, minimum/maximum, items, min/maxItems, anyOf.
   - Unsupported keywords are ignored, so the output is **re-validated with zod**.
 
@@ -215,7 +215,7 @@ Source for API rate: [usage guidelines](https://developers.hubspot.com/docs/deve
   Sources: [changelog](https://ai.google.dev/gemini-api/docs/changelog), [thinking](https://ai.google.dev/gemini-api/docs/generate-content/thinking).
 - **Usage for cost:** `usageMetadata.promptTokenCount`, `candidatesTokenCount`, `thoughtsTokenCount`, `totalTokenCount`. Thinking is separate from candidates, so **`gemini_tokens_out = candidates + thoughts`**. Source: [API reference](https://ai.google.dev/api/generate-content).
 - **Price** (Standard paid tier, per 1M tokens): `gemini-3.8-flash` costs **$0.75 in / $3.75 out until 2026-12-31**, then **$1.50 / $7.50** from 2027-01-01. Set `GEMINI_PRICE_IN_PER_MTOK_INR` / `GEMINI_PRICE_OUT_PER_MTOK_INR` from these × your USD→INR rate, and **update them on Jan 1**. Source: [pricing](https://ai.google.dev/gemini-api/docs/pricing).
-- **Errors:** retry 429/503/timeouts with exponential backoff and jitter (1 s, 2 s, 4 s, capped); never retry 400/402/403. Source: [troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting). The JS SDK timeout option (`httpOptions.timeout`) is UNVERIFIED, so we wrap every call in our own `AbortController` timeout.
+- **Errors:** retry 429/503/timeouts with exponential backoff and jitter (1 s, 2 s, 4 s, capped); never retry 400/402/403. Source: [troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting). `httpOptions.timeout` and `abortSignal` exist (verified in the typings). We use both, turn off the SDK's own retries and apply ours.
 
 ## 6. Neon
 

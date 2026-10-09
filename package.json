@@ -13,9 +13,14 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
-    "check": "pnpm typecheck && pnpm test"
+    "check": "pnpm typecheck && pnpm test",
+    "rubric:build": "tsx scripts/build-rubric.ts",
+    "rubric:check": "tsx scripts/build-rubric.ts --check",
+    "pricing:config": "tsx scripts/pricing-config.ts",
+    "eval": "tsx scripts/eval.ts"
   },
   "dependencies": {
+    "@google/genai": "2.28.0",
     "@neondatabase/serverless": "1.2.0",
     "drizzle-orm": "0.45.4",
     "next": "16.4.0",
