@@ -79,6 +79,8 @@ export const envSchema = z
     CAL_EVENT_TYPE_ID_CALL: optionalNumber,
     CAL_API_VERSION_SLOTS: z.string().trim().default("2024-09-04"),
     CAL_API_VERSION_BOOKINGS: z.string().trim().default("2026-02-25"),
+    /** Override only for tests and the local mock (scripts/mock-cal.ts). */
+    CAL_API_BASE_URL: z.string().trim().url().default("https://api.cal.com"),
 
     // HubSpot
     HUBSPOT_ACCESS_TOKEN: optionalString,
@@ -105,7 +107,9 @@ export const envSchema = z
     BUSINESS_HOURS_START: hhmm.default("10:00"),
     BUSINESS_HOURS_END: hhmm.default("19:00"),
     BUSINESS_DAYS: businessDays.default(["mon", "tue", "wed", "thu", "fri", "sat"]),
-    PLACEHOLDER_EMAIL_DOMAIN: optionalString,
+    PLACEHOLDER_EMAIL_DOMAIN: z.string().trim().default("example.com"),
+    /** Tool endpoint requests per minute per client IP (T4). */
+    TOOL_RATE_LIMIT_PER_MIN: numberWithDefault(120),
     AMBER_STALE_HOURS: numberWithDefault(4),
     RETENTION_DAYS: numberWithDefault(90),
 

@@ -9,7 +9,7 @@ An inbound phone enquiry agent for Aangan Studio (interior design, Pune).
 - Every call is stored in Neon and logged in HubSpot, and designers get Telegram alerts.
 - A dashboard shows designers and the founder what came in and what it cost.
 
-> Status: **Phase 2 of 8**: rubric and rules engine. The full README (architecture, runbook, extending to WhatsApp and the web form) lands in Phase 7.
+> Status: **Phase 3 of 8**: Vaani tool endpoints. The full README (architecture, runbook, extending to WhatsApp and the web form) lands in Phase 7.
 
 ## This repository is public: what is deliberately not in it
 
@@ -43,6 +43,8 @@ pnpm dev                     # http://localhost:3000/api/health
 | `pnpm db:seed --reset` | Remove and re-insert the seed calls |
 | `pnpm pricing:config` | Read the local `pricing.md` and write `PRICING_CONFIG_JSON` into `.env.local` |
 | `pnpm rubric:build` / `rubric:check` | Build `rubric.txt` (gitignored) from `docs/source/` and the examples |
+| `pnpm vaani:export` | Regenerate `docs/vaani/tools.json` and `docs/vaani/curl.md` from the endpoint schemas |
+| `pnpm mock:cal` + `scripts/curl/*.sh` | Local Cal.com stand-in and curl walkthroughs of the three tools (`CAL_API_BASE_URL=http://localhost:4010 pnpm dev`) |
 | `pnpm eval` | Replay the 40 local enquiries through extraction and the rules; prints a confusion matrix. `--source=fixtures` skips Gemini |
 
 ## Layout
@@ -51,5 +53,7 @@ pnpm dev                     # http://localhost:3000/api/health
 - `src/db/schema.ts`: the five tables from PRD section 5: `calls`, `bookings`, `tool_calls`, `pipeline_steps`, `review_actions`.
 - `src/app/api/health`: database check and an integration-configured report (booleans only).
 - `src/lib/rules`: the qualification rules (PRD section 3): criteria, budget check, flags, tier, estimate, priority, IST callback wording, price-leak check, repeat-caller linking. Thresholds live in `config.ts`; pricing figures come only from `PRICING_CONFIG_JSON`.
+- `src/app/api/vaani/tools/*`: the three Vaani tools (T1–T3). Logic in `src/lib/tools/service.ts`; secret check, rate limit, 2.3 s deadline and `tool_calls` logging in `src/lib/tools/http.ts`; Cal.com client in `src/lib/cal/client.ts`.
+- `docs/vaani/`: tool definitions, one cURL per tool for Vaani's form, and the prompt changes the tools need.
 - `src/lib/gemini`: Gemini Flash client (strict JSON, timeouts, retries, token cost) and the criteria-extraction schema.
 - `docs/PLATFORM_NOTES.md`: what each external platform's docs confirm, and what is still UNVERIFIED.

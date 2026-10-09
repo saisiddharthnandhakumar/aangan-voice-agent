@@ -17,7 +17,9 @@
     "rubric:build": "tsx scripts/build-rubric.ts",
     "rubric:check": "tsx scripts/build-rubric.ts --check",
     "pricing:config": "tsx scripts/pricing-config.ts",
-    "eval": "tsx scripts/eval.ts"
+    "eval": "tsx scripts/eval.ts",
+    "mock:cal": "tsx scripts/mock-cal.ts",
+    "vaani:export": "tsx scripts/vaani-export.ts"
   },
   "dependencies": {
     "@google/genai": "2.28.0",

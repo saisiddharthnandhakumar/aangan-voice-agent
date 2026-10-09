@@ -1,0 +1,513 @@
+{
+  "generated_by": "pnpm vaani:export",
+  "tools": [
+    {
+      "name": "submit_assessment",
+      "description": "Record what the caller has told you against the five criteria. Call it before offering a booking or ending the call, and again if the caller changes something important. It returns the call_id to reuse and the action you must follow.",
+      "method": "POST",
+      "url": "https://YOUR-APP.vercel.app/api/vaani/tools/submit_assessment",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tool-Secret": "YOUR_VAANI_TOOL_SECRET"
+      },
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "description": "The call_id returned by your first submit_assessment in this call. Empty on the very first submit_assessment."
+          },
+          "call_mode": {
+            "type": "string",
+            "description": "Always the value of {{call_mode}}."
+          },
+          "call_category": {
+            "type": "string",
+            "enum": [
+              "enquiry",
+              "existing_client",
+              "existing_client_complaint",
+              "vendor_or_sales",
+              "job_seeker",
+              "wrong_number",
+              "other"
+            ]
+          },
+          "caller_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Caller's name"
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Best number to reach them, digits as said"
+          },
+          "project_type": {
+            "type": "string",
+            "enum": [
+              "home",
+              "office",
+              "clinic",
+              "studio",
+              "retail",
+              "hospitality",
+              "gym",
+              "other"
+            ]
+          },
+          "scope_type": {
+            "type": "string",
+            "enum": [
+              "full_home",
+              "full_floor",
+              "rooms",
+              "office",
+              "other"
+            ]
+          },
+          "rooms_in_scope": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Number of rooms if specific rooms; a kitchen counts as a room"
+          },
+          "property_detail": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For example 3BHK apartment"
+          },
+          "bhk": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "BHK of the flat"
+          },
+          "size_sqft": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Carpet area in sq ft if stated"
+          },
+          "locality": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Area or pincode of the site"
+          },
+          "scope_summary": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "One or two sentences"
+          },
+          "completion_needed_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "YYYY-MM-DD when the project must be COMPLETE. A month alone means the 1st. Never a possession date."
+          },
+          "timeline_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Caller's own words about timing"
+          },
+          "site_ready_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the site is available, e.g. possession date, in the caller's words"
+          },
+          "volunteered_budget_low_inr": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Only if the caller volunteered a number, in rupees (1.5 lakh = 150000). Never ask."
+          },
+          "volunteered_budget_high_inr": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Top of the volunteered range, in rupees. Same as low for a single number."
+          },
+          "referral_source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How they heard about the studio"
+          },
+          "existing_project_designer": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Existing clients only"
+          },
+          "issue_summary": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Existing clients only, one line"
+          },
+          "criteria": {
+            "type": "object",
+            "properties": {
+              "real_project": {
+                "type": "object",
+                "description": "Design and execution wanted, not advice only",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "fail",
+                      "unclear"
+                    ]
+                  },
+                  "evidence": {
+                    "type": "string",
+                    "description": "The caller's own words, briefly"
+                  }
+                },
+                "required": [
+                  "status",
+                  "evidence"
+                ]
+              },
+              "service_area": {
+                "type": "object",
+                "description": "Site in Pune city or PCMC",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "fail",
+                      "unclear"
+                    ]
+                  },
+                  "evidence": {
+                    "type": "string",
+                    "description": "The caller's own words, briefly"
+                  }
+                },
+                "required": [
+                  "status",
+                  "evidence"
+                ]
+              },
+              "timeline": {
+                "type": "object",
+                "description": "When it must be complete",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "fail",
+                      "unclear"
+                    ]
+                  },
+                  "evidence": {
+                    "type": "string",
+                    "description": "The caller's own words, briefly"
+                  }
+                },
+                "required": [
+                  "status",
+                  "evidence"
+                ]
+              },
+              "budget": {
+                "type": "object",
+                "description": "Pass unless the caller volunteered a number; never ask",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "fail",
+                      "unclear"
+                    ]
+                  },
+                  "evidence": {
+                    "type": "string",
+                    "description": "The caller's own words, briefly"
+                  }
+                },
+                "required": [
+                  "status",
+                  "evidence"
+                ]
+              },
+              "decision_maker": {
+                "type": "object",
+                "description": "Fail only if clearly researching for someone else",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pass",
+                      "fail",
+                      "unclear"
+                    ]
+                  },
+                  "evidence": {
+                    "type": "string",
+                    "description": "The caller's own words, briefly"
+                  }
+                },
+                "required": [
+                  "status",
+                  "evidence"
+                ]
+              }
+            },
+            "required": [
+              "real_project",
+              "service_area",
+              "timeline",
+              "budget",
+              "decision_maker"
+            ]
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "structural_changes",
+                "wants_human",
+                "frustrated_repeat"
+              ]
+            }
+          },
+          "timeline_move_asked": {
+            "type": "boolean",
+            "description": "True once you have asked whether the date can move"
+          }
+        },
+        "required": [
+          "call_id",
+          "call_mode",
+          "call_category",
+          "criteria"
+        ]
+      },
+      "returns": "{ call_id, tier, action: offer_booking | callback | decline | escalate | close_non_enquiry | ask_date_move, callback_phrase, say_reason, reasons }",
+      "example": {
+        "call_id": "",
+        "call_mode": "{{call_mode}}",
+        "call_category": "enquiry",
+        "caller_name": "Priya",
+        "phone": "9876543210",
+        "project_type": "home",
+        "scope_type": "full_home",
+        "rooms_in_scope": null,
+        "property_detail": "3BHK apartment",
+        "bhk": 3,
+        "size_sqft": 1400,
+        "locality": "Kothrud",
+        "scope_summary": "Full redesign of a 3BHK",
+        "completion_needed_by": "2027-03-01",
+        "timeline_text": "by March, no rush",
+        "site_ready_text": null,
+        "volunteered_budget_low_inr": null,
+        "volunteered_budget_high_inr": null,
+        "referral_source": "friend",
+        "existing_project_designer": null,
+        "issue_summary": null,
+        "criteria": {
+          "real_project": {
+            "status": "pass",
+            "evidence": "redo the whole thing"
+          },
+          "service_area": {
+            "status": "pass",
+            "evidence": "Kothrud"
+          },
+          "timeline": {
+            "status": "pass",
+            "evidence": "by March, no rush"
+          },
+          "budget": {
+            "status": "pass",
+            "evidence": "not mentioned"
+          },
+          "decision_maker": {
+            "status": "pass",
+            "evidence": "my husband agrees"
+          }
+        },
+        "flags": [],
+        "timeline_move_asked": false
+      }
+    },
+    {
+      "name": "check_availability",
+      "description": "Look up open consultation slots from a date the caller chose. Returns up to three slots with the wording to read aloud.",
+      "method": "POST",
+      "url": "https://YOUR-APP.vercel.app/api/vaani/tools/check_availability",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tool-Secret": "YOUR_VAANI_TOOL_SECRET"
+      },
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "description": "The call_id returned by your first submit_assessment in this call. Empty on the very first submit_assessment."
+          },
+          "call_mode": {
+            "type": "string",
+            "description": "Always the value of {{call_mode}}."
+          },
+          "preferred_date": {
+            "type": "string",
+            "description": "YYYY-MM-DD the caller prefers"
+          },
+          "preferred_time_text": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "For example morning, evening, weekend, Saturday"
+          },
+          "consult_type": {
+            "type": "string",
+            "enum": [
+              "site_visit",
+              "call"
+            ]
+          },
+          "days_to_search": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7,
+            "description": "Default 3"
+          }
+        },
+        "required": [
+          "call_id",
+          "preferred_date",
+          "consult_type"
+        ]
+      },
+      "returns": "{ slots: [{ start_iso, label }], message, agent_note? }  Read message aloud; never read agent_note.",
+      "example": {
+        "call_id": "ABC234",
+        "call_mode": "{{call_mode}}",
+        "preferred_date": "2026-10-14",
+        "preferred_time_text": "evening",
+        "consult_type": "site_visit",
+        "days_to_search": 3
+      }
+    },
+    {
+      "name": "book_consult",
+      "description": "Book the slot the caller chose. Only works for calls the assessment marked offer_booking. Pass start_iso exactly as check_availability returned it.",
+      "method": "POST",
+      "url": "https://YOUR-APP.vercel.app/api/vaani/tools/book_consult",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-Tool-Secret": "YOUR_VAANI_TOOL_SECRET"
+      },
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "call_id": {
+            "type": "string",
+            "description": "The call_id returned by your first submit_assessment in this call. Empty on the very first submit_assessment."
+          },
+          "call_mode": {
+            "type": "string",
+            "description": "Always the value of {{call_mode}}."
+          },
+          "slot_start_iso": {
+            "type": "string",
+            "description": "start_iso of the chosen slot, unchanged"
+          },
+          "consult_type": {
+            "type": "string",
+            "enum": [
+              "site_visit",
+              "call"
+            ]
+          },
+          "site_area": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Area or address for a site visit"
+          },
+          "caller_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Caller's name"
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Caller's number"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Only if the caller gave one; read it back first"
+          },
+          "project_summary": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "One line"
+          }
+        },
+        "required": [
+          "call_id",
+          "slot_start_iso",
+          "consult_type"
+        ]
+      },
+      "returns": "{ booked: true, spoken_confirmation } or { booked: false, reason, slots? }  Say spoken_confirmation or reason.",
+      "example": {
+        "call_id": "ABC234",
+        "call_mode": "{{call_mode}}",
+        "slot_start_iso": "2026-10-14T10:30:00.000Z",
+        "consult_type": "site_visit",
+        "site_area": "Kothrud",
+        "caller_name": "Priya",
+        "phone": "9876543210",
+        "email": null,
+        "project_summary": "Full redesign of a 3BHK"
+      }
+    }
+  ]
+}

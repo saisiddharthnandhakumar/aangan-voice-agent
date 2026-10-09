@@ -119,7 +119,8 @@ export function assess(input: AssessmentInput, ctx: AssessContext): AssessmentRe
     budget: {
       status: budget.status,
       evidence: input.criteria.budget.evidence,
-      override: budget.status !== input.criteria.budget.status ? budget.note ?? "no budget volunteered" : undefined,
+      // Only worth a note when a number was volunteered; "no number" is the normal case.
+      override: budget.topInr != null && budget.status !== input.criteria.budget.status ? (budget.note ?? undefined) : undefined,
     },
     decision_maker: input.criteria.decision_maker,
   };

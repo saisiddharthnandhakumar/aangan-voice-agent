@@ -67,6 +67,9 @@ export const calls = pgTable(
     // Nullable: a tool call may arrive before the webhook tells us Vaani's call ID.
     vaaniCallId: text("vaani_call_id"),
     vaaniAgentId: text("vaani_agent_id"), // extra: test-agent detection
+    // extra: short reference returned by submit_assessment and passed back by the agent, because
+    // Vaani has no call-ID variable (docs/PLATFORM_NOTES.md section 1.11).
+    callRef: text("call_ref"),
     fromNumber: text("from_number"),
     toNumber: text("to_number"),
     callerName: text("caller_name"),
@@ -123,6 +126,8 @@ export const calls = pgTable(
   },
   (t) => [
     uniqueIndex("calls_vaani_call_id_uq").on(t.vaaniCallId),
+    uniqueIndex("calls_call_ref_uq").on(t.callRef),
+    index("calls_created_at_idx").on(t.createdAt),
     index("calls_started_at_idx").on(t.startedAt),
     index("calls_status_idx").on(t.status),
     index("calls_tier_idx").on(t.tier),

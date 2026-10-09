@@ -6,7 +6,7 @@ Checked on 2026-10-09 against each platform's official docs. Every claim cites i
 | Platform | Verdict for the build |
 |---|---|
 | Vaani | **Mode A confirmed in the dashboard (2026-10-10):** custom tools exist ("Paste cURL" form). **No call-ID or caller-number variable**, so tool calls are correlated by our own reference (§1.11) |
-| Cal.com | Slots and bookings v2 confirmed. Version headers `2024-09-04` / `2026-02-25`. Slot-taken error UNVERIFIED (§2) |
+| Cal.com | Slots verified live on 2026-10-10 (shape, version header, event types). Booking create and the slot-taken error still UNVERIFIED (no real booking made) (§2) |
 | HubSpot (Free CRM) | **10 custom properties total, no custom pipeline, 1,000 contacts. Private-app creation ends 2026-10-26** (§3) |
 | Telegram | Confirmed: sendMessage, editMessageText, URL buttons, HTML escaping (§4) |
 | Gemini | `gemini-3.8-flash` (GA). Structured JSON via `@google/genai` 2.28, field names verified in typings (§5). Live call not yet run (no key) |
@@ -107,6 +107,12 @@ Configured **per organisation** in Settings → Webhooks (a URL only). Inbound a
   - `location` is an object. Site visit: `{"type":"attendeeAddress","address":"<site_area>"}`. Call: `{"type":"attendeePhone","phone":"+91…"}`.
   - `metadata`: string values only, ≤50 keys, keys ≤40 chars, values ≤500 chars. We send `call_id` only, never phone or pricing.
   - Success returns 201 `data{id, uid, status, start, end, …}`.
+- **Verified against the live account (2026-10-10, read-only):**
+  - `GET /v2/slots` with version `2024-09-04` and `format=range` returns `data["YYYY-MM-DD"] = [{start, end}]` (objects, with `+05:30` offsets). It answered in 430–860 ms from here.
+  - "Aangan site visit": 60 min, locations Cal Video + `attendeeAddress`, 240 min minimum notice.
+  - "Aangan design call": 20 min, Google Meet only.
+  - Both require `name` and `email`. `attendeePhoneNumber` is optional and hidden.
+  - Consequences: we always send an email (a placeholder if the caller gave none), use `attendeeAddress` for site visits, and send no location for calls (Meet is used; the phone goes in the notes).
 - **Slot already taken:** the error code and body are **UNVERIFIED** (not documented). The client treats any 4xx on create as "slot unavailable", re-fetches slots, and returns `{booked:false, reason, slots}`.
 - **No idempotency key** on create booking. Idempotency comes from us: a unique `bookings.call_id` plus a "pending" row written before the Cal.com request. Source: [create booking](https://cal.com/docs/api-reference/v2/bookings/create-a-booking).
 - **Reserve a slot** (about a 5-minute hold) exists but isn't needed. Source: [API v2 reference](https://cal.com/docs/_llms/api-v2-reference.md).
