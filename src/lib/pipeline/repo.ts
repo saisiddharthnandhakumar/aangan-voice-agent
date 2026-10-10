@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 import type { Db } from "@/db";
+import type { AnyDb } from "@/lib/dashboard/types";
 import { bookings, calls, pipelineSteps } from "@/db/schema";
 import type { PriorCall } from "@/lib/rules/repeat";
 import type { DigestItem } from "@/lib/telegram/alerts";
@@ -51,7 +52,9 @@ export interface PipelineRepo {
   upsertStep(callId: string, step: string, values: { status: StepStatus; attempts: number; lastError: string | null }): Promise<void>;
 }
 
-export function drizzlePipelineRepo(db: Db): PipelineRepo {
+export function drizzlePipelineRepo(anyDb: AnyDb): PipelineRepo {
+  // Production is Neon HTTP (has batch); the query tests use PGlite and never call the merge.
+  const db = anyDb as unknown as Db;
   return {
     async recordEvent(vaaniCallId, event, isTest) {
       await db

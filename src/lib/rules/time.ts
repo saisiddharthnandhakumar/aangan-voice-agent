@@ -69,6 +69,12 @@ export function callbackWhen(now: Date, hours: BusinessHours): { withinHour: boo
   return { withinHour: false, when: "as soon as we can" };
 }
 
+/** "2026-10-12 11:00" in IST: sortable, for CSV exports. */
+export function formatIstSortable(instant: Date): string {
+  const shifted = new Date(instant.getTime() + IST_OFFSET_MINUTES * 60_000).toISOString();
+  return `${shifted.slice(0, 10)} ${shifted.slice(11, 16)}`;
+}
+
 /** "Tue 13 Oct, 3:30 PM" in IST, for alerts and CRM notes. */
 export function formatIst(instant: Date, withYear = false): string {
   return new Intl.DateTimeFormat("en-IN", {

@@ -6,6 +6,12 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["dev"],
       "port": 3000
+    },
+    {
+      "name": "next-dev-test-login",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["DASHBOARD_DESIGNER_PASSWORD=local-test-designer-pw", "DASHBOARD_FOUNDER_PASSWORD=local-test-founder-pw", "pnpm", "dev"],
+      "port": 3000
     }
   ]
 }

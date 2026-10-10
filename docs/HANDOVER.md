@@ -90,6 +90,14 @@ An inbound phone enquiry agent for Aangan Studio, an interior design studio in P
   - Nothing has run against real Telegram or HubSpot yet: UNVERIFIED are the phone search property names, the v4 default-association path, the deal `description` property, and the exact HubSpot UI wording in the view instructions.
   - 376 tests.
 
+- **Phase 6, done (2026-10-10):**
+  - Dashboard: `/login`, `/dashboard` (designer: 7 tabs, filters, high priority first, pagination), `/dashboard/calls/[id]` (summary, criteria with evidence, flags, transcript with price-leak turns marked, booking, HubSpot links, pipeline steps with Retry, review history, Approve/Rescue/Discard/Note), `/dashboard/founder` (every PRD §4 metric, 3 charts, date range, CSV via `/api/dashboard/export`). Founder-only pages redirect designers; the CSV returns 403.
+  - Review actions save first and sync HubSpot second (`src/lib/dashboard/review.ts`); a HubSpot failure is recorded as a `hubspot_review` step with a Retry button. Red leads are never deleted.
+  - Queries are tested against in-memory Postgres (PGlite, a dev dependency) with our real migrations. A bug found there: in a single-table Drizzle select, columns inside select-list SQL render unqualified, so correlated subqueries must use `callIdRef` (`src/lib/dashboard/queries.ts`).
+  - Never shown: budget floor, any pricing figure, per-call estimated value, the caller's budget words. Only the aggregate estimated pipeline appears on the founder view.
+  - Local login test: `.claude/launch.json` has `next-dev-test-login`, which starts the dev server with throwaway test passwords. The dev Neon branch holds 7 demo calls (`vaani_call_id like 'demo-%'`); delete them when no longer wanted.
+  - 431 tests.
+
 ## 5. Key design decisions already made (don't re-ask)
 
 - **2026-10-10, overrides the PRD (user decision at the start of Phase 4):**

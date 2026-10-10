@@ -1,26 +1,110 @@
 @import "tailwindcss";
 
+/* Design tokens. Light is the default; dark follows the OS (or data-theme). Chart and tier colours come from the
+   validated data-viz palette: tiers use its fixed status steps, series its first categorical slots. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --bg: #f7f6f3;
+  --surface: #ffffff;
+  --surface-2: #f0efec;
+  --ink: #1b1a18;
+  --ink-2: #52514e;
+  --ink-3: #7a7974;
+  --line: #e3e1db;
+  --accent: #184f95;
+  --accent-ink: #ffffff;
+  --focus: #2a78d6;
+
+  --tier-green: #0ca30c;
+  --tier-amber: #fab219;
+  --tier-red: #d03b3b;
+  --tier-none: #9a9992;
+  --tier-green-bg: #e3f5e3;
+  --tier-green-ink: #0a5a0a;
+  --tier-amber-bg: #fdf0cd;
+  --tier-amber-ink: #7a5200;
+  --tier-red-bg: #fbe4e4;
+  --tier-red-ink: #9c1f1f;
+  --tier-none-bg: #ecebe7;
+  --tier-none-ink: #52514e;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --warn-bg: #fff4d6;
+  --warn-ink: #6b4700;
+  --bad-bg: #fde6e6;
+  --bad-ink: #8f1c1c;
+  --ok-bg: #e3f5e3;
+  --ok-ink: #0a5a0a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --bg: #121211;
+    --surface: #1a1a19;
+    --surface-2: #262624;
+    --ink: #f2f1ee;
+    --ink-2: #c3c2b7;
+    --ink-3: #9a998f;
+    --line: #34332f;
+    --accent: #6da7ec;
+    --accent-ink: #0b0b0b;
+    --focus: #6da7ec;
+
+    --tier-none: #7f7e77;
+    --tier-green-bg: #123a12;
+    --tier-green-ink: #9be39b;
+    --tier-amber-bg: #4a3400;
+    --tier-amber-ink: #ffd773;
+    --tier-red-bg: #4a1717;
+    --tier-red-ink: #ffa9a9;
+    --tier-none-bg: #2e2e2b;
+    --tier-none-ink: #c3c2b7;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --warn-bg: #3f2f00;
+    --warn-ink: #ffd773;
+    --bad-bg: #431616;
+    --bad-ink: #ffa9a9;
+    --ok-bg: #123a12;
+    --ok-ink: #9be39b;
+  }
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
+  --color-bad-bg: var(--bad-bg);
+  --color-bad-ink: var(--bad-ink);
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-ink: var(--ok-ink);
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Tabular figures keep columns of numbers aligned. */
+.num {
+  font-variant-numeric: tabular-nums;
 }

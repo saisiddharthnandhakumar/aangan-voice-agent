@@ -1,4 +1,5 @@
 import { env } from "@/env";
+import { sessionFromRequest } from "@/lib/auth/guard";
 import { pipelineDeps } from "@/lib/pipeline/deps";
 import { isStepName, runPipeline } from "@/lib/pipeline/run";
 import { secretMatches } from "@/lib/tools/http";
@@ -13,13 +14,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /**
  * POST /api/pipeline/retry {call_id, step} (PRD P2). Re-runs `step` and every step after it
  * ("all" re-runs the whole pipeline; add "only": true to run just that step). call_id is the
- * calls.id UUID or the 6-character call_ref. Auth: Authorization: Bearer <CRON_SECRET> for now;
- * the dashboard session takes over in Phase 6. Returns step statuses only, never call data.
+ * calls.id UUID or the 6-character call_ref. Auth: Authorization: Bearer <CRON_SECRET>, or a dashboard
+ * session (designer or founder). Returns step statuses only, never call data.
  */
 export async function POST(req: Request): Promise<Response> {
   const secret = env().CRON_SECRET;
   const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
-  if (!secret || !secretMatches(bearer, secret)) return json({ error: "unauthorized" }, 401);
+  const byBearer = Boolean(secret && secretMatches(bearer, secret));
+  if (!byBearer && !(await sessionFromRequest(req))) return json({ error: "unauthorized" }, 401);
 
   const body = (await req.json().catch(() => null)) as { call_id?: unknown; step?: unknown; only?: unknown } | null;
   const step = body?.step ?? "all";

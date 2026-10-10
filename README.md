@@ -9,7 +9,7 @@ An inbound phone enquiry agent for Aangan Studio (interior design, Pune).
 - Every call is stored in Neon and logged in HubSpot, and designers get Telegram alerts.
 - A dashboard shows designers and the founder what came in and what it cost.
 
-> Status: **Phase 5 of 8**: Telegram alerts and HubSpot logging (built and tested with mocks; waiting for the bot and HubSpot credentials, see `docs/TELEGRAM_SETUP.md` and `docs/HUBSPOT_SETUP.md`). The full README (architecture, runbook, extending to WhatsApp and the web form) lands in Phase 7.
+> Status: **Phase 6 of 8** (dashboard built and tested); Phase 5 integrations still wait for credentials: Telegram alerts and HubSpot logging (built and tested with mocks; waiting for the bot and HubSpot credentials, see `docs/TELEGRAM_SETUP.md` and `docs/HUBSPOT_SETUP.md`). The full README (architecture, runbook, extending to WhatsApp and the web form) lands in Phase 7.
 
 **How a call is qualified (decision of 2026-10-10, overriding the PRD):** the Vaani agent decides Green, Amber or Red itself from `rubric.txt` during the call and sends its tier through `submit_assessment`; the backend stores it as given. Green and Amber are both offered and booked into the "Aangan design call" (the site visit is not used); Red is declined kindly. Gemini only summarises after the call and never changes the tier.
 
@@ -62,6 +62,7 @@ pnpm dev                     # http://localhost:3000/api/health
 - `src/app/api/vaani/tools/*`: the three Vaani tools (T1–T3). Logic in `src/lib/tools/service.ts`; secret check, rate limit, 2.3 s deadline and `tool_calls` logging in `src/lib/tools/http.ts`; Cal.com client in `src/lib/cal/client.ts`.
 - `docs/vaani/`: tool definitions, one cURL per tool for Vaani's form, and the prompt changes the tools need.
 - `src/app/api/webhooks/vaani/call-ended`: the Vaani webhook (URL token, raw event stored first, idempotent per event type, work in `after()`). Payload parsing only in `src/lib/vaani/events.ts`.
+- `src/app/dashboard`, `src/app/login`, `src/proxy.ts`: the designer view (tabs, filters, call detail with Approve, Rescue, Discard, Note and step retry) and the founder view (metrics, charts, CSV). Two-role password login with a signed cookie (`src/lib/auth`); the proxy redirects early and every page, action and route checks the role itself. Queries in `src/lib/dashboard`; metric definitions in `docs/METRICS.md`.
 - `src/lib/telegram`: Bot API client (HTML escaping, 3 retries honouring `retry_after`, edit-in-place) and the alert builder and routing (`alerts.ts`).
 - `src/lib/hubspot`: client (retry policy per call type), property map and note builders (`mapping.ts`), contact/call/deal sync and review-decision sync (`sync.ts`), setup (`setup.ts`).
 - `src/app/api/cron/digest`: the 09:00 IST job: settles stale pending bookings, sends the digest of unreviewed Amber and recent Red leads.
