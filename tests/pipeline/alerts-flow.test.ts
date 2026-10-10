@@ -179,6 +179,21 @@ describe("HubSpot down does not delay Telegram (AT21)", () => {
   });
 });
 
+describe("retention", () => {
+  it("clears transcripts and recording links older than RETENTION_DAYS, keeping the call, summary and tier", async () => {
+    const m = memoryPipeline();
+    const old = await fullCall(m, pipelineDeps({ repo: m.repo }), "r-old", {}, { start: new Date("2026-06-01T05:28:00Z") });
+    const recent = await fullCall(m, pipelineDeps({ repo: m.repo }), "r-recent", {}, { start: new Date("2026-10-10T05:28:00Z") });
+    old.recordingUrl = "https://rec.example/old.mp3";
+    old.createdAt = new Date("2026-06-01T05:28:00Z");
+    recent.createdAt = new Date("2026-10-10T05:28:00Z");
+    const res = await runDaily(pipelineDeps({ repo: m.repo, now: new Date("2026-10-13T03:30:00Z") }));
+    expect(res.purged).toBe(1);
+    expect(old).toMatchObject({ transcript: null, recordingUrl: null, tier: "green", summary: expect.any(String) });
+    expect(recent.transcript).toContain("AGENT:");
+  });
+});
+
 describe("daily job (P9)", () => {
   it("sends the digest of unreviewed Amber and Red, and settles stale pending bookings", async () => {
     const m = memoryPipeline();

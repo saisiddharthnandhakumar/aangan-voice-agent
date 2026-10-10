@@ -18,6 +18,7 @@
     "rubric:check": "tsx scripts/build-rubric.ts --check",
     "pricing:config": "tsx scripts/pricing-config.ts",
     "eval": "tsx scripts/eval.ts",
+    "eval:agent": "tsx scripts/eval-agent.ts",
     "mock:cal": "tsx scripts/mock-cal.ts",
     "vaani:export": "tsx scripts/vaani-export.ts",
     "vaani:prompt": "tsx scripts/vaani-prompt.ts",
@@ -25,7 +26,9 @@
     "rubric:env": "tsx scripts/rubric-env.ts",
     "e2e:webhook": "tsx scripts/e2e-webhook.ts",
     "hubspot:setup": "tsx scripts/hubspot-setup.ts",
-    "telegram:chats": "tsx scripts/telegram-chats.ts"
+    "telegram:chats": "tsx scripts/telegram-chats.ts",
+    "secrets:rotate": "tsx scripts/secrets.ts rotate",
+    "secrets:copy": "tsx scripts/secrets.ts copy"
   },
   "dependencies": {
     "@google/genai": "2.28.0",

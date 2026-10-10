@@ -102,6 +102,14 @@ export function memoryPipeline() {
         .filter((c) => !c.isTest && c.reviewState === "none" && ((c.tier === "amber" && ["booked", "awaiting_designer"].includes(c.status)) || (c.tier === "red" && c.createdAt.getTime() >= dayAgo)))
         .map((c) => ({ id: c.id, tier: c.tier as "red" | "amber", name: c.callerName, locality: null, createdAt: c.createdAt }));
     },
+    async purgeTranscripts(before) {
+      const old = tools.calls.filter((c) => c.createdAt < before && (c.transcript || c.recordingUrl));
+      for (const c of old) {
+        c.transcript = null;
+        c.recordingUrl = null;
+      }
+      return old.length;
+    },
     async getSteps(callId) {
       return steps.filter((s) => s.callId === callId);
     },
@@ -257,6 +265,7 @@ export function pipelineDeps(o: FakeDepsOptions): PipelineDeps & { slept: number
       geminiPriceOutPerMtokInr: 300,
       reconcileAfterMs: 120_000,
       appBaseUrl: "https://aangan.example",
+      retentionDays: 90,
       ...o.config,
     },
     history: o.history ?? null,

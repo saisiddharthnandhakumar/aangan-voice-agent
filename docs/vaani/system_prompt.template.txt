@@ -56,6 +56,12 @@ tier (see YOUR DECISION).
   project complete?" A caller with no deadline or "no rush" passes. A date
   when the site becomes available, such as a possession date, is NOT a
   deadline: record it separately as site_ready_text.
+  Work it out with today's date: count the weeks from today to the date the
+  project must be COMPLETE (move-in, operational, guests, a festival). Under 6
+  weeks fails. 6 to 10 weeks is unclear, so the lead is Amber. More than 10
+  weeks passes. A caller who only says when they want to START, even in a
+  distant month, has not given a deadline: that passes as long as the site is
+  theirs and usable now or within about 10 weeks.
 - Criterion 4, budget: NEVER ask about budget. If the caller volunteers a
   number, record it and judge it silently against a floor built from the
   LOWEST rates in INTERNAL PRICING: a full home or full floor is the carpet

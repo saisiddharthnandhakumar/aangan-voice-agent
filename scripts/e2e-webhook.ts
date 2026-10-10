@@ -1,12 +1,14 @@
 /**
- * pnpm e2e:webhook [--base=http://localhost:3000] [--env-file=.env.local] [--mode=a|b] [--tier=green|amber|red]
+ * pnpm e2e:webhook [--base=http://localhost:3000] [--env-file=.env.local] [--mode=a|b] [--tier=green|amber|red] [--real]
  *
  * End-to-end check of the webhook and pipeline through the real HTTP routes:
  *   mode a (default): submit_assessment (call_mode "e2e-test", so is_test) → call_started →
  *     user_picked_up_at → call_ended → call_postprocessing (twice, to prove idempotency);
  *   mode b: the same events with no tool call (Vaani tools not reaching us).
  * Every event carries is_test: true and an "e2e-" room name, so nothing reaches HubSpot or
- * Telegram. Then it polls the database named by the env file and prints the call's status, tier,
+ * Telegram. With --real it instead posts a NON-test lead (call_mode "phone", name "E2E Test (ignore)",
+ * a fixed dummy number) so that Telegram and HubSpot really fire: use it once after connecting them, then
+ * delete the contact and deal in HubSpot. Then it polls the database named by the env file and prints the call's status, tier,
  * flags and pipeline steps. Prints no secrets and no phone numbers.
  *
  * Production: --base=https://aangan-voice-agent-inky.vercel.app --env-file=.env.main-branch.local
@@ -22,6 +24,8 @@ config({ path: envFile, quiet: true });
 const base = arg("base", "http://localhost:3000").replace(/\/$/, "");
 const mode = arg("mode", "a");
 const tier = arg("tier", "green");
+const real = process.argv.includes("--real");
+const DUMMY_PHONE = "+919999900001";
 const webhookSecret = process.env.VAANI_WEBHOOK_SECRET;
 const toolSecret = process.env.VAANI_TOOL_SECRET;
 const dbUrl = process.env.DATABASE_URL;
@@ -56,15 +60,15 @@ async function postJson(path: string, body: unknown, headers: Record<string, str
 const hook = (body: unknown) => postJson(`/api/webhooks/vaani/call-ended?token=${encodeURIComponent(webhookSecret as string)}`, body);
 
 async function main() {
-  console.log(`E2E webhook → ${base} (mode ${mode}${mode === "a" ? `, agent tier ${tier}` : ""}), room ${room}\n`);
+  console.log(`E2E webhook → ${base} (mode ${mode}${mode === "a" ? `, agent tier ${tier}` : ""}${real ? ", REAL: not marked as a test" : ""}), room ${room}\n`);
 
   // Auth check first: a wrong token must be refused.
   const bad = await postJson("/api/webhooks/vaani/call-ended?token=wrong", { event: "call_started", room_name: room });
   console.log(`wrong token            → ${bad.status} ${bad.status === 401 ? "ok" : "UNEXPECTED"}`);
 
-  const started = await hook({ event: "call_started", room_name: room, status: "dialing", timestamp: start.toISOString(), is_test: true });
+  const started = await hook({ event: "call_started", room_name: room, status: "dialing", timestamp: start.toISOString(), ...(real ? { phone_number: DUMMY_PHONE } : { is_test: true }) });
   console.log(`call_started           → ${started.status} ${JSON.stringify(started.json)}`);
-  await hook({ event: "user_picked_up_at", room_name: room, status: "active", timestamp: new Date(start.getTime() + 2000).toISOString(), is_test: true });
+  await hook({ event: "user_picked_up_at", room_name: room, status: "active", timestamp: new Date(start.getTime() + 2000).toISOString(), ...(real ? {} : { is_test: true }) });
 
   let ref: string | null = null;
   if (mode === "a") {
@@ -72,9 +76,10 @@ async function main() {
       "/api/vaani/tools/submit_assessment",
       {
         call_id: "",
-        call_mode: "e2e-test",
+        call_mode: real ? "phone" : "e2e-test",
         call_category: "enquiry",
-        caller_name: "E2E Test",
+        caller_name: real ? "E2E Test (ignore)" : "E2E Test",
+        ...(real ? { phone: DUMMY_PHONE } : {}),
         project_type: "home",
         scope_type: "full_home",
         bhk: 3,
@@ -95,14 +100,14 @@ async function main() {
     console.log(`submit_assessment      → ${sub.status} action=${(sub.json as { action?: string }).action} call_ref=${ref}`);
   }
 
-  const ended = await hook({ event: "call_ended", room_name: room, call_duration: seconds, end_reason: "AGENT_REQUESTED_DISCONNECT", timestamp: end.toISOString(), is_test: true });
+  const ended = await hook({ event: "call_ended", room_name: room, call_duration: seconds, end_reason: "AGENT_REQUESTED_DISCONNECT", timestamp: end.toISOString(), ...(real ? {} : { is_test: true }) });
   console.log(`call_ended             → ${ended.status} ${JSON.stringify(ended.json)}`);
   await new Promise((r) => setTimeout(r, 2000)); // Vaani sends post-processing some time after the call ends
   const post = {
     event: "call_postprocessing",
     call_id: room,
     timestamp: end.toISOString(),
-    is_test: true,
+    ...(real ? {} : { is_test: true }),
     data: { room_name: room, call_id: room, call_duration: seconds * 1000, end_reason: "Call ended", summary: "e2e", entities: {}, dispositions: {}, recording_url: null, transcript },
   };
   const p1 = await hook(post);
@@ -131,7 +136,7 @@ async function main() {
       }
       const checks = [
         ["one row for the room", Number(row.rows_for_room) === 1],
-        ["is_test", row.is_test === true],
+        [real ? "not a test call (reaches Telegram and HubSpot)" : "is_test", row.is_test === !real],
         ["4 distinct events stored", Number(row.events) === 4],
         ...(mode === "a" ? [["merged with the tool row", row.call_ref === ref] as const, ["tier kept as the agent's", row.tier === tier] as const] : [["unclassified (Mode B)", (row.flags as string[]).includes("unclassified")] as const]),
         ["no price leak", row.price_leak === false],

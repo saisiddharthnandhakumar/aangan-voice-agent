@@ -1,6 +1,6 @@
 # Aangan voice agent: handover for the next session
 
-Written 2026-10-10 at the end of Phase 3; updated at the end of Phase 4 (see §4 and the 2026-10-10 decision at the top of §5). Read this first, then `docs/PRD.md` (local only, gitignored) and `docs/PLATFORM_NOTES.md`.
+Written 2026-10-10 at the end of Phase 3; updated through Phase 8 (see §4 and the 2026-10-10 decision at the top of §5). All eight phases are built; what remains is credentials and live verification (docs/SETUP_CHECKLIST.md). Read this first, then `docs/PRD.md` (local only, gitignored) and `docs/PLATFORM_NOTES.md`.
 
 ## 0. Paste this into the new chat to start
 
@@ -97,6 +97,10 @@ An inbound phone enquiry agent for Aangan Studio, an interior design studio in P
   - Never shown: budget floor, any pricing figure, per-call estimated value, the caller's budget words. Only the aggregate estimated pipeline appears on the founder view.
   - Local login test: `.claude/launch.json` has `next-dev-test-login`, which starts the dev server with throwaway test passwords. The dev Neon branch holds 7 demo calls (`vaani_call_id like 'demo-%'`); delete them when no longer wanted.
   - 431 tests.
+
+- **Phase 7 (hardening), done (2026-10-10):** `docs/ACCEPTANCE.md` maps all 23 acceptance tests to their evidence (automated test, `pnpm eval:agent`, or a voice test), with a voice-test script; `tests/acceptance/end-to-end.test.ts` runs AT1/AT2/AT6 through tools, webhook, Telegram and HubSpot doubles; `pnpm eval:agent` (Gemini plays the agent with the real system prompt) measured **90.0%, 0 Green→Red, 0 Red→Green** (majority of 3 runs; at the threshold; misses are T11/T13/W03 label questions and T02). The timeline rule in the prompt was made explicit (count weeks; a start date is not a deadline), so the Vaani prompt must be **re-pasted**. Retention purge added to the daily job. README rewritten in full, `CLAUDE.md` added. `pnpm e2e:webhook --real` posts a labelled non-test lead so Telegram and HubSpot can be seen working.
+- **Phase 8 (go-live docs), done:** `docs/SETUP_CHECKLIST.md` (every variable, Vaani tool and webhook entries, phone linking, Cal.com, Vercel, secret rotation, pre-call checks), `pnpm secrets:rotate` / `secrets:copy`. **Not done, needs the user:** Telegram bot and chats, HubSpot app and views (before 2026-10-26), Gemini price variables, `PLACEHOLDER_EMAIL_DOMAIN`, rotating the exposed tool secret, linking the office number, repasting the Vaani prompt, proving the in-call tools in a voice test, and the Vercel Pro question (Hobby is non-commercial).
+- 435 tests at the end of Phase 8.
 
 ## 5. Key design decisions already made (don't re-ask)
 

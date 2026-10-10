@@ -48,6 +48,11 @@ export interface PipelineRepo {
   listPendingBookings(olderThan: Date): Promise<Array<{ callId: string }>>;
   /** Red leads from the last day and every unreviewed Amber lead, test calls excluded. */
   digestItems(now: Date): Promise<DigestItem[]>;
+  /**
+   * Retention: clear transcripts and recording links of calls older than `before`. The call row, summary,
+   * tier and costs stay; only the raw conversation goes. Returns how many calls were cleared.
+   */
+  purgeTranscripts(before: Date): Promise<number>;
   getSteps(callId: string): Promise<StepRow[]>;
   upsertStep(callId: string, step: string, values: { status: StepStatus; attempts: number; lastError: string | null }): Promise<void>;
 }
@@ -185,6 +190,14 @@ export function drizzlePipelineRepo(anyDb: AnyDb): PipelineRepo {
         locality: typeof (r.facts as { locality?: unknown } | null)?.locality === "string" ? ((r.facts as { locality: string }).locality) : null,
         createdAt: r.createdAt,
       }));
+    },
+    async purgeTranscripts(before) {
+      const rows = await db
+        .update(calls)
+        .set({ transcript: null, recordingUrl: null })
+        .where(and(lt(calls.createdAt, before), or(isNotNull(calls.transcript), isNotNull(calls.recordingUrl))))
+        .returning({ id: calls.id });
+      return rows.length;
     },
     async getSteps(callId) {
       return db.select().from(pipelineSteps).where(eq(pipelineSteps.callId, callId));

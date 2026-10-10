@@ -36,6 +36,8 @@ export interface PipelineConfig {
   /** A pending booking younger than this is left for the daily reconcile (the alert must not wait for it). */
   reconcileAfterMs: number;
   appBaseUrl?: string;
+  /** Transcripts and recording links older than this many days are cleared by the daily job (PRD privacy). */
+  retentionDays: number;
 }
 
 /** Telegram, bound to the configured bot and chats. Null when TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing. */

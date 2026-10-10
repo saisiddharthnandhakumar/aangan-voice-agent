@@ -29,6 +29,7 @@ export function pipelineDeps(): PipelineDeps {
       geminiPriceOutPerMtokInr: e.GEMINI_PRICE_OUT_PER_MTOK_INR,
       reconcileAfterMs: 2 * 60_000,
       appBaseUrl: e.APP_BASE_URL,
+      retentionDays: e.RETENTION_DAYS,
     },
     telegram:
       e.TELEGRAM_BOT_TOKEN && e.TELEGRAM_CHAT_ID
