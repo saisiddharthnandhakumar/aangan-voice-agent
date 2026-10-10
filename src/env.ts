@@ -97,6 +97,12 @@ export const envSchema = z
 
     // App
     APP_BASE_URL: z.string().trim().url().optional(),
+    /**
+     * Dashboard login. User decision 2026-10-10: "off" (the default) means NO login: anyone with the web address
+     * can open every dashboard page, the CSV, and the Approve/Rescue/Discard actions, and sees callers' names,
+     * phone numbers and transcripts. Set DASHBOARD_LOGIN=on to require the two passwords again.
+     */
+    DASHBOARD_LOGIN: z.enum(["on", "off"]).default("off"),
     SESSION_SECRET: secret.optional(),
     DASHBOARD_DESIGNER_PASSWORD: z.string().min(8).optional(),
     DASHBOARD_FOUNDER_PASSWORD: z.string().min(8).optional(),
@@ -130,9 +136,7 @@ export const envSchema = z
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;
     const requiredInProd = [
-      "SESSION_SECRET",
-      "DASHBOARD_DESIGNER_PASSWORD",
-      "DASHBOARD_FOUNDER_PASSWORD",
+      ...(env.DASHBOARD_LOGIN === "on" ? (["SESSION_SECRET", "DASHBOARD_DESIGNER_PASSWORD", "DASHBOARD_FOUNDER_PASSWORD"] as const) : []),
       "CRON_SECRET",
       "APP_BASE_URL",
     ] as const;

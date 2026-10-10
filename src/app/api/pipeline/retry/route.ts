@@ -21,7 +21,7 @@ export async function POST(req: Request): Promise<Response> {
   const secret = env().CRON_SECRET;
   const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
   const byBearer = Boolean(secret && secretMatches(bearer, secret));
-  if (!byBearer && !(await sessionFromRequest(req))) return json({ error: "unauthorized" }, 401);
+  if (!byBearer && !(await sessionFromRequest(req, { strict: true }))) return json({ error: "unauthorized" }, 401);
 
   const body = (await req.json().catch(() => null)) as { call_id?: unknown; step?: unknown; only?: unknown } | null;
   const step = body?.step ?? "all";

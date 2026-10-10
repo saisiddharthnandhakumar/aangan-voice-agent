@@ -12,6 +12,7 @@ export interface LoginState {
 
 export async function login(_prev: LoginState, form: FormData): Promise<LoginState> {
   const e = env();
+  if (e.DASHBOARD_LOGIN !== "on") redirect("/dashboard");
   if (!e.SESSION_SECRET || (!e.DASHBOARD_DESIGNER_PASSWORD && !e.DASHBOARD_FOUNDER_PASSWORD)) {
     return { error: "The dashboard is not configured yet: SESSION_SECRET and the dashboard passwords are missing." };
   }

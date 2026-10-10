@@ -6,6 +6,7 @@ import { SESSION_COOKIE, verifySession } from "@/lib/auth/session";
  * checks the signature and expiry); every page, action and route still checks the role itself.
  */
 export async function proxy(request: NextRequest) {
+  if (process.env.DASHBOARD_LOGIN !== "on") return NextResponse.next(); // no login (the default, see src/env.ts)
   const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value, process.env.SESSION_SECRET);
   if (session) return NextResponse.next();
   const url = new URL("/login", request.url);

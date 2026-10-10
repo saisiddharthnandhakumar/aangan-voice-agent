@@ -38,11 +38,18 @@ describe("environment validation", () => {
     expect(() => parseEnv({ DATABASE_URL: DB, BUSINESS_DAYS: "monday" })).toThrow(/BUSINESS_DAYS/);
   });
 
-  it("requires login and cron secrets in production", () => {
-    expect(() => parseEnv({ DATABASE_URL: DB, NODE_ENV: "production" })).toThrow(/SESSION_SECRET/);
+  it("with no dashboard login (the default), production needs only the cron secret and the app URL", () => {
+    expect(() => parseEnv({ DATABASE_URL: DB, NODE_ENV: "production" })).toThrow(/CRON_SECRET/);
+    const e = parseEnv({ DATABASE_URL: DB, NODE_ENV: "production", CRON_SECRET: S, APP_BASE_URL: "https://example.vercel.app" });
+    expect(e.DASHBOARD_LOGIN).toBe("off");
+  });
+
+  it("requires login and cron secrets in production when DASHBOARD_LOGIN=on", () => {
+    expect(() => parseEnv({ DATABASE_URL: DB, NODE_ENV: "production", DASHBOARD_LOGIN: "on" })).toThrow(/SESSION_SECRET/);
     const ok = parseEnv({
       DATABASE_URL: DB,
       NODE_ENV: "production",
+      DASHBOARD_LOGIN: "on",
       SESSION_SECRET: S,
       CRON_SECRET: S,
       DASHBOARD_DESIGNER_PASSWORD: "designer-pass",

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { logout } from "@/app/login/actions";
-import { requireRole } from "@/lib/auth/guard";
+import { loginRequired, requireRole } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +25,18 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             )}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm text-ink-2">
-            <span className="capitalize">{role}</span>
-            <form action={logout}>
-              <button type="submit" className="rounded-md border border-line px-3 py-1.5 hover:bg-surface-2">
-                Sign out
-              </button>
-            </form>
+            {loginRequired() ? (
+              <>
+                <span className="capitalize">{role}</span>
+                <form action={logout}>
+                  <button type="submit" className="rounded-md border border-line px-3 py-1.5 hover:bg-surface-2">
+                    Sign out
+                  </button>
+                </form>
+              </>
+            ) : (
+              <span title="Anyone with this address can open the dashboard">No login</span>
+            )}
           </div>
         </div>
       </header>
