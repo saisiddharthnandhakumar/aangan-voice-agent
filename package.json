@@ -20,7 +20,8 @@
     "eval": "tsx scripts/eval.ts",
     "mock:cal": "tsx scripts/mock-cal.ts",
     "vaani:export": "tsx scripts/vaani-export.ts",
-    "vaani:prompt": "tsx scripts/vaani-prompt.ts"
+    "vaani:prompt": "tsx scripts/vaani-prompt.ts",
+    "leak:scan": "node scripts/leak-scan.mjs"
   },
   "dependencies": {
     "@google/genai": "2.28.0",

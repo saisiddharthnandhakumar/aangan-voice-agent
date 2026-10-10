@@ -7,8 +7,8 @@ import { writeFileSync } from "node:fs";
 import { CALL_CATEGORIES, PROJECT_TYPES, SCOPE_TYPES } from "../src/lib/rules/types";
 
 const BASE = "https://YOUR-APP.vercel.app/api/vaani/tools";
-const str = (description: string) => ({ type: ["string", "null"], description });
-const num = (description: string) => ({ type: ["number", "null"], description });
+const str = (description: string) => ({ type: "string", description: `${description}. Leave out if not given.` });
+const num = (description: string) => ({ type: "number", description: `${description}. Leave out if not given.` });
 const callId = {
   type: "string",
   description: "The call_id returned by your first submit_assessment in this call. Empty on the very first submit_assessment.",

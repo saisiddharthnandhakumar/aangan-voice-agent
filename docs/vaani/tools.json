@@ -34,18 +34,12 @@
             ]
           },
           "caller_name": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Caller's name"
+            "type": "string",
+            "description": "Caller's name. Leave out if not given."
           },
           "phone": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Best number to reach them, digits as said"
+            "type": "string",
+            "description": "Best number to reach them, digits as said. Leave out if not given."
           },
           "project_type": {
             "type": "string",
@@ -71,102 +65,60 @@
             ]
           },
           "rooms_in_scope": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Number of rooms if specific rooms; a kitchen counts as a room"
+            "type": "number",
+            "description": "Number of rooms if specific rooms; a kitchen counts as a room. Leave out if not given."
           },
           "property_detail": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "For example 3BHK apartment"
+            "type": "string",
+            "description": "For example 3BHK apartment. Leave out if not given."
           },
           "bhk": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "BHK of the flat"
+            "type": "number",
+            "description": "BHK of the flat. Leave out if not given."
           },
           "size_sqft": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Carpet area in sq ft if stated"
+            "type": "number",
+            "description": "Carpet area in sq ft if stated. Leave out if not given."
           },
           "locality": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Area or pincode of the site"
+            "type": "string",
+            "description": "Area or pincode of the site. Leave out if not given."
           },
           "scope_summary": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "One or two sentences"
+            "type": "string",
+            "description": "One or two sentences. Leave out if not given."
           },
           "completion_needed_by": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "YYYY-MM-DD when the project must be COMPLETE. A month alone means the 1st. Never a possession date."
+            "type": "string",
+            "description": "YYYY-MM-DD when the project must be COMPLETE. A month alone means the 1st. Never a possession date.. Leave out if not given."
           },
           "timeline_text": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Caller's own words about timing"
+            "type": "string",
+            "description": "Caller's own words about timing. Leave out if not given."
           },
           "site_ready_text": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "When the site is available, e.g. possession date, in the caller's words"
+            "type": "string",
+            "description": "When the site is available, e.g. possession date, in the caller's words. Leave out if not given."
           },
           "volunteered_budget_low_inr": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Only if the caller volunteered a number, in rupees (1.5 lakh = 150000). Never ask."
+            "type": "number",
+            "description": "Only if the caller volunteered a number, in rupees (1.5 lakh = 150000). Never ask.. Leave out if not given."
           },
           "volunteered_budget_high_inr": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Top of the volunteered range, in rupees. Same as low for a single number."
+            "type": "number",
+            "description": "Top of the volunteered range, in rupees. Same as low for a single number.. Leave out if not given."
           },
           "referral_source": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "How they heard about the studio"
+            "type": "string",
+            "description": "How they heard about the studio. Leave out if not given."
           },
           "existing_project_designer": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Existing clients only"
+            "type": "string",
+            "description": "Existing clients only. Leave out if not given."
           },
           "issue_summary": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Existing clients only, one line"
+            "type": "string",
+            "description": "Existing clients only, one line. Leave out if not given."
           },
           "real_project_status": {
             "type": "string",
@@ -315,11 +267,8 @@
             "description": "YYYY-MM-DD the caller prefers"
           },
           "preferred_time_text": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "For example morning, evening, weekend, Saturday"
+            "type": "string",
+            "description": "For example morning, evening, weekend, Saturday. Leave out if not given."
           },
           "consult_type": {
             "type": "string",
@@ -383,39 +332,24 @@
             ]
           },
           "site_area": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Area or address for a site visit"
+            "type": "string",
+            "description": "Area or address for a site visit. Leave out if not given."
           },
           "caller_name": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Caller's name"
+            "type": "string",
+            "description": "Caller's name. Leave out if not given."
           },
           "phone": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Caller's number"
+            "type": "string",
+            "description": "Caller's number. Leave out if not given."
           },
           "email": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Only if the caller gave one; read it back first"
+            "type": "string",
+            "description": "Only if the caller gave one; read it back first. Leave out if not given."
           },
           "project_summary": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "One line"
+            "type": "string",
+            "description": "One line. Leave out if not given."
           }
         },
         "required": [
