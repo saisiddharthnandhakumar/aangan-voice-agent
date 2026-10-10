@@ -21,9 +21,9 @@ const RUNNER_ATTEMPTS: Record<StepName, number> = {
   tier: 2,
   leak_check: 2,
   cost: 2,
+  telegram: 1,
   hubspot_log: 1,
   hubspot_deal: 1,
-  telegram: 1,
 };
 
 export interface StepReport {
@@ -36,8 +36,8 @@ export interface StepReport {
 export interface RunOptions {
   /** Start from this step (a retry re-runs it and everything after it). Default: the first. */
   from?: StepName;
-  /** Run only this one step. */
-  only?: StepName;
+  /** Run only this step, or only these steps, in pipeline order. */
+  only?: StepName | readonly StepName[];
 }
 
 export async function runStep(callId: string, step: StepName, deps: PipelineDeps): Promise<StepReport & { halt: boolean }> {
@@ -70,8 +70,9 @@ export async function runStep(callId: string, step: StepName, deps: PipelineDeps
 }
 
 export async function runPipeline(callId: string, deps: PipelineDeps, opts: RunOptions = {}): Promise<StepReport[]> {
-  const steps: readonly StepName[] = opts.only
-    ? [opts.only]
+  const only = opts.only ? (Array.isArray(opts.only) ? opts.only : [opts.only]) : null;
+  const steps: readonly StepName[] = only
+    ? PIPELINE_STEPS.filter((s) => only.includes(s))
     : PIPELINE_STEPS.slice(opts.from ? PIPELINE_STEPS.indexOf(opts.from) : 0);
   const reports: StepReport[] = [];
   for (const step of steps) {

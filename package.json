@@ -23,7 +23,9 @@
     "vaani:prompt": "tsx scripts/vaani-prompt.ts",
     "leak:scan": "node scripts/leak-scan.mjs",
     "rubric:env": "tsx scripts/rubric-env.ts",
-    "e2e:webhook": "tsx scripts/e2e-webhook.ts"
+    "e2e:webhook": "tsx scripts/e2e-webhook.ts",
+    "hubspot:setup": "tsx scripts/hubspot-setup.ts",
+    "telegram:chats": "tsx scripts/telegram-chats.ts"
   },
   "dependencies": {
     "@google/genai": "2.28.0",

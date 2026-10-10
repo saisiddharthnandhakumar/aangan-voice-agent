@@ -9,7 +9,7 @@ An inbound phone enquiry agent for Aangan Studio (interior design, Pune).
 - Every call is stored in Neon and logged in HubSpot, and designers get Telegram alerts.
 - A dashboard shows designers and the founder what came in and what it cost.
 
-> Status: **Phase 4 of 8**: webhook and post-call pipeline. The full README (architecture, runbook, extending to WhatsApp and the web form) lands in Phase 7.
+> Status: **Phase 5 of 8**: Telegram alerts and HubSpot logging (built and tested with mocks; waiting for the bot and HubSpot credentials, see `docs/TELEGRAM_SETUP.md` and `docs/HUBSPOT_SETUP.md`). The full README (architecture, runbook, extending to WhatsApp and the web form) lands in Phase 7.
 
 **How a call is qualified (decision of 2026-10-10, overriding the PRD):** the Vaani agent decides Green, Amber or Red itself from `rubric.txt` during the call and sends its tier through `submit_assessment`; the backend stores it as given. Green and Amber are both offered and booked into the "Aangan design call" (the site visit is not used); Red is declined kindly. Gemini only summarises after the call and never changes the tier.
 
@@ -49,6 +49,8 @@ pnpm dev                     # http://localhost:3000/api/health
 | `pnpm mock:cal` + `scripts/curl/*.sh` | Local Cal.com stand-in and curl walkthroughs of the three tools (`CAL_API_BASE_URL=http://localhost:4010 pnpm dev`) |
 | `pnpm rubric:env` | Write `rubric.txt` base64-encoded into `RUBRIC_TXT_B64` (`--env-file=` for another file); copy it to Vercel |
 | `pnpm e2e:webhook` | Post a test call's webhook events through the real routes and print the pipeline result (`--base=`, `--env-file=`, `--mode=a\|b`, `--tier=`) |
+| `pnpm hubspot:setup` | Create the HubSpot property group and 8 properties (Free plan), map the default pipeline's stages, print the env lines (`--write`, `--full`) |
+| `pnpm telegram:chats` | List the chats the bot has seen so you can copy the group IDs; `--send-test` posts one test message to each configured chat |
 | `pnpm eval` | Replay the 40 local enquiries through extraction and the rules; prints a confusion matrix. `--source=fixtures` skips Gemini |
 
 ## Layout
@@ -60,6 +62,9 @@ pnpm dev                     # http://localhost:3000/api/health
 - `src/app/api/vaani/tools/*`: the three Vaani tools (T1–T3). Logic in `src/lib/tools/service.ts`; secret check, rate limit, 2.3 s deadline and `tool_calls` logging in `src/lib/tools/http.ts`; Cal.com client in `src/lib/cal/client.ts`.
 - `docs/vaani/`: tool definitions, one cURL per tool for Vaani's form, and the prompt changes the tools need.
 - `src/app/api/webhooks/vaani/call-ended`: the Vaani webhook (URL token, raw event stored first, idempotent per event type, work in `after()`). Payload parsing only in `src/lib/vaani/events.ts`.
+- `src/lib/telegram`: Bot API client (HTML escaping, 3 retries honouring `retry_after`, edit-in-place) and the alert builder and routing (`alerts.ts`).
+- `src/lib/hubspot`: client (retry policy per call type), property map and note builders (`mapping.ts`), contact/call/deal sync and review-decision sync (`sync.ts`), setup (`setup.ts`).
+- `src/app/api/cron/digest`: the 09:00 IST job: settles stale pending bookings, sends the digest of unreviewed Amber and recent Red leads.
 - `src/lib/pipeline`: post-call steps (`save, enrich, booking, gemini, tier, leak_check, cost`, then HubSpot and Telegram from Phase 5), each recorded in `pipeline_steps`; linking the webhook call to the tool calls' row (`correlate.ts`); `POST /api/pipeline/retry`.
 - `src/lib/gemini`: Gemini Flash client (strict JSON, timeouts, retries, token cost) and the criteria-extraction schema.
 - `docs/PLATFORM_NOTES.md`: what each external platform's docs confirm, and what is still UNVERIFIED.

@@ -68,3 +68,19 @@ export function callbackWhen(now: Date, hours: BusinessHours): { withinHour: boo
   }
   return { withinHour: false, when: "as soon as we can" };
 }
+
+/** "Tue 13 Oct, 3:30 PM" in IST, for alerts and CRM notes. */
+export function formatIst(instant: Date, withYear = false): string {
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: IST_TIMEZONE,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    ...(withYear ? { year: "numeric" } : {}),
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+    .format(instant)
+    .replace(/\b(am|pm)\b/i, (m) => m.toUpperCase());
+}

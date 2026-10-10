@@ -109,7 +109,7 @@ async function fetchPage(cfg: VaaniHistoryConfig, page: number): Promise<{ items
 export async function findCallInHistory(cfg: VaaniHistoryConfig, vaaniCallId: string): Promise<VaaniHistoryItem | null> {
   for (let page = 1; page <= (cfg.pages ?? 2); page++) {
     const { value } = await withRetry(() => fetchPage(cfg, page), {
-      attempts: 3,
+      attempts: 2,
       baseDelayMs: 1000,
       maxDelayMs: 4000,
       retryable,

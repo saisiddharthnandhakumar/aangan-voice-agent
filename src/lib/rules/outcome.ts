@@ -48,3 +48,31 @@ export function finalStatus(o: OutcomeInput): FinalStatus {
   if ((o.tier === "green" || o.tier === "amber") && o.hasAcceptedBooking) return "booked";
   return "awaiting_designer";
 }
+
+export const STATUS_LABELS = {
+  in_call: "In call",
+  processing: "Processing",
+  booked: "Booked",
+  awaiting_designer: "Awaiting designer",
+  unqualified_verified: "Unqualified verified",
+  escalated: "Escalated",
+  dropped: "Dropped",
+  non_enquiry: "Not an enquiry",
+  failed: "Failed",
+} as const;
+
+export const REVIEW_LABELS = { approved: "Approved", rescued: "Rescued", discarded: "Discarded" } as const;
+
+/**
+ * The status shown on the dashboards and in HubSpot (aangan_status). A designer's decision
+ * (Approve, Rescue, Discard) replaces the pipeline status; the tier is shown beside it as its own
+ * label, on every surface, so an Amber lead always reads Amber.
+ */
+export function statusLabel(status: keyof typeof STATUS_LABELS, reviewState: "none" | "approved" | "rescued" | "discarded" | null | undefined): string {
+  if (reviewState && reviewState !== "none") return REVIEW_LABELS[reviewState];
+  return STATUS_LABELS[status];
+}
+
+export function tierLabel(tier: Tier | null | undefined): string | null {
+  return tier ? tier[0].toUpperCase() + tier.slice(1) : null;
+}

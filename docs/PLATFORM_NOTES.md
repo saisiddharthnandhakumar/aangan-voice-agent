@@ -163,6 +163,11 @@ Source: [HubSpot product & services catalog](https://legal.hubspot.com/hubspot-p
 
 Source for API rate: [usage guidelines](https://developers.hubspot.com/docs/developer-tooling/platform/usage-guidelines), [search guide](https://developers.hubspot.com/docs/api-reference/search/guide).
 
+### 3.3b Rechecked 2026-10-10 (Phase 5)
+- **Search:** the guide says to search without the country code and to use `hs_searchable_calculated_*` properties (exact names not given); operators `EQ` and `CONTAINS_TOKEN` (wildcards `*`); 5 requests/second/account. The client tries `hs_searchable_calculated_phone_number` / `_mobile_number` with `CONTAINS_TOKEN` and the 10-digit number, then falls back to exact `phone` / `mobilephone` on a 400. **UNVERIFIED live.**
+- **Call record:** `POST /crm/v3/objects/calls` with `hs_timestamp` (ms or UTC), `hs_call_duration` in **ms**, `hs_call_status` (COMPLETED, NO_ANSWER, FAILED, …) and inline association type 194 to a contact, all as in the docs' example.
+- **Deals:** `dealname`, `dealstage` (internal ID, required) and `pipeline`; update by PATCH with a `properties` object. The docs list **no default stage IDs**, so `pnpm hubspot:setup` reads the pipeline and maps stages by name. The deal→contact association uses the v4 default-association endpoint (`PUT /crm/v4/objects/deals/{id}/associations/default/contacts/{id}`) instead of a type ID; **UNVERIFIED live**.
+
 ### 3.4 API versions
 - HubSpot moved to date versions (e.g. `/crm/objects/2026-09/contacts`). **The v1–v4 semantic versions stop working in September 2027.** We use v3 now (documented and stable), put the version in one constant, and note the migration in the README. Source: [migration guide](https://developers.hubspot.com/docs/api-reference/legacy/migration-guide).
 

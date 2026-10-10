@@ -83,6 +83,13 @@ An inbound phone enquiry agent for Aangan Studio, an interior design studio in P
   - Verified locally against the dev branch with the real Gemini: Mode A (merged, agent tier kept, duplicate ignored) and Mode B (unclassified). 283 tests.
   - Vaani history `call_cost` is in **credits**, so Vaani cost = duration × rate. Cal.com list-bookings needs version `2026-05-01`.
 
+- **Phase 5, done in code (2026-10-10), waiting for credentials:**
+  - Telegram: client, alert builder and routing, `telegram` pipeline step, daily digest cron. Designers' group gets Green, Amber, existing-client callbacks, dropped calls with a number, unrated calls; founder chat gets complaints and price leaks; Red and test calls get nothing; a redial edits the first alert.
+  - HubSpot: client, contact upsert by phone (own DB first, then HubSpot search), call record for every non-test call, deals for Green and Amber automatically, Red only on Rescue, `syncReviewDecision` for the dashboard (Phase 6), `pnpm hubspot:setup`, `docs/HUBSPOT_SETUP.md`, `docs/TELEGRAM_SETUP.md`.
+  - Step order is now `save, enrich, booking, gemini, tier, leak_check, cost, telegram, hubspot_log, hubspot_deal` (Telegram before HubSpot so an outage never delays an alert).
+  - Nothing has run against real Telegram or HubSpot yet: UNVERIFIED are the phone search property names, the v4 default-association path, the deal `description` property, and the exact HubSpot UI wording in the view instructions.
+  - 376 tests.
+
 ## 5. Key design decisions already made (don't re-ask)
 
 - **2026-10-10, overrides the PRD (user decision at the start of Phase 4):**

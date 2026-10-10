@@ -1,8 +1,9 @@
-import { and, eq, gte, isNull, lt, lte, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 import type { Db } from "@/db";
 import { bookings, calls, pipelineSteps } from "@/db/schema";
 import type { PriorCall } from "@/lib/rules/repeat";
+import type { DigestItem } from "@/lib/telegram/alerts";
 import type { BookingInsert, BookingRow, CallInsert, CallRow } from "@/lib/tools/repo";
 
 export type StepRow = InferSelectModel<typeof pipelineSteps>;
@@ -37,6 +38,15 @@ export interface PipelineRepo {
   updateBooking(id: string, values: Partial<BookingInsert>): Promise<void>;
   /** Calls from this number that started in [since, before), excluding one call. */
   priorCallsFromNumber(fromNumber: string, since: Date, before: Date, excludeId: string): Promise<PriorCall[]>;
+  /** HubSpot IDs already stored for this caller, so a repeat caller reuses one contact and one deal. */
+  findContactIdByNumber(fromNumber: string, excludeId: string): Promise<string | null>;
+  findDealIdByContact(contactId: string, excludeId: string): Promise<string | null>;
+  /** Non-test calls from this number, for aangan_call_count. */
+  countCallsFromNumber(fromNumber: string): Promise<number>;
+  /** Bookings still pending that were created before `olderThan` (the daily job reconciles them). */
+  listPendingBookings(olderThan: Date): Promise<Array<{ callId: string }>>;
+  /** Red leads from the last day and every unreviewed Amber lead, test calls excluded. */
+  digestItems(now: Date): Promise<DigestItem[]>;
   getSteps(callId: string): Promise<StepRow[]>;
   upsertStep(callId: string, step: string, values: { status: StepStatus; attempts: number; lastError: string | null }): Promise<void>;
 }
@@ -126,6 +136,52 @@ export function drizzlePipelineRepo(db: Db): PipelineRepo {
         .select({ id: calls.id, fromNumber: calls.fromNumber, startedAt: calls.startedAt, repeatOfCallId: calls.repeatOfCallId })
         .from(calls)
         .where(and(eq(calls.fromNumber, fromNumber), gte(calls.startedAt, since), lt(calls.startedAt, before), ne(calls.id, excludeId)));
+    },
+    async findContactIdByNumber(fromNumber, excludeId) {
+      const rows = await db
+        .select({ id: calls.hubspotContactId })
+        .from(calls)
+        .where(and(eq(calls.fromNumber, fromNumber), isNotNull(calls.hubspotContactId), ne(calls.id, excludeId)))
+        .orderBy(desc(calls.createdAt))
+        .limit(1);
+      return rows[0]?.id ?? null;
+    },
+    async findDealIdByContact(contactId, excludeId) {
+      const rows = await db
+        .select({ id: calls.hubspotDealId })
+        .from(calls)
+        .where(and(eq(calls.hubspotContactId, contactId), isNotNull(calls.hubspotDealId), ne(calls.id, excludeId)))
+        .orderBy(desc(calls.createdAt))
+        .limit(1);
+      return rows[0]?.id ?? null;
+    },
+    async countCallsFromNumber(fromNumber) {
+      const rows = await db.select({ n: sql<number>`count(*)::int` }).from(calls).where(and(eq(calls.fromNumber, fromNumber), eq(calls.isTest, false)));
+      return rows[0]?.n ?? 1;
+    },
+    async listPendingBookings(olderThan) {
+      return db.select({ callId: bookings.callId }).from(bookings).where(and(eq(bookings.status, "pending"), lt(bookings.createdAt, olderThan)));
+    },
+    async digestItems(now) {
+      const dayAgo = new Date(now.getTime() - 24 * 3_600_000);
+      const rows = await db
+        .select({ id: calls.id, tier: calls.tier, name: calls.callerName, facts: calls.facts, createdAt: calls.createdAt })
+        .from(calls)
+        .where(
+          and(
+            eq(calls.isTest, false),
+            eq(calls.reviewState, "none"),
+            or(and(eq(calls.tier, "amber"), inArray(calls.status, ["booked", "awaiting_designer"])), and(eq(calls.tier, "red"), gte(calls.createdAt, dayAgo))),
+          ),
+        )
+        .orderBy(calls.createdAt);
+      return rows.map((r) => ({
+        id: r.id,
+        tier: r.tier as "red" | "amber",
+        name: r.name,
+        locality: typeof (r.facts as { locality?: unknown } | null)?.locality === "string" ? ((r.facts as { locality: string }).locality) : null,
+        createdAt: r.createdAt,
+      }));
     },
     async getSteps(callId) {
       return db.select().from(pipelineSteps).where(eq(pipelineSteps.callId, callId));

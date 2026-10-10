@@ -88,6 +88,7 @@ export const envSchema = z
     HUBSPOT_PIPELINE_ID: optionalString,
     HUBSPOT_STAGE_BOOKED: optionalString,
     HUBSPOT_STAGE_AWAITING: optionalString,
+    HUBSPOT_STAGE_LOST: optionalString,
 
     // Telegram
     TELEGRAM_BOT_TOKEN: optionalString,

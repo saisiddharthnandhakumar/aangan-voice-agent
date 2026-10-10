@@ -1,6 +1,8 @@
 import { db } from "@/db";
 import { env } from "@/env";
 import { findBookings } from "@/lib/cal/client";
+import { hubspotApi } from "@/lib/hubspot/client";
+import { editMessage, sendMessage } from "@/lib/telegram/client";
 import { generateJson } from "@/lib/gemini/client";
 import { normalisePostCall, postCallJsonSchema, postCallPrompt, postCallShape } from "@/lib/gemini/postcall";
 import { loadRubric } from "@/lib/rubric/runtime";
@@ -26,10 +28,30 @@ export function pipelineDeps(): PipelineDeps {
       geminiPriceInPerMtokInr: e.GEMINI_PRICE_IN_PER_MTOK_INR,
       geminiPriceOutPerMtokInr: e.GEMINI_PRICE_OUT_PER_MTOK_INR,
       reconcileAfterMs: 2 * 60_000,
-      hubspotConfigured: Boolean(e.HUBSPOT_ACCESS_TOKEN),
-      telegramConfigured: Boolean(e.TELEGRAM_BOT_TOKEN && e.TELEGRAM_CHAT_ID),
+      appBaseUrl: e.APP_BASE_URL,
     },
-    history: e.VAANI_API_KEY ? (id) => findCallInHistory({ apiKey: e.VAANI_API_KEY as string }, id) : null,
+    telegram:
+      e.TELEGRAM_BOT_TOKEN && e.TELEGRAM_CHAT_ID
+        ? {
+            designersChatId: e.TELEGRAM_CHAT_ID,
+            founderChatId: e.TELEGRAM_ESCALATION_CHAT_ID ?? null,
+            send: (o) => sendMessage({ botToken: e.TELEGRAM_BOT_TOKEN as string }, o),
+            edit: (o) => editMessage({ botToken: e.TELEGRAM_BOT_TOKEN as string }, o),
+          }
+        : null,
+    hubspot: e.HUBSPOT_ACCESS_TOKEN
+      ? {
+          api: hubspotApi({ accessToken: e.HUBSPOT_ACCESS_TOKEN }),
+          ids: {
+            pipelineId: e.HUBSPOT_PIPELINE_ID ?? "default",
+            stageBooked: e.HUBSPOT_STAGE_BOOKED ?? null,
+            stageAwaiting: e.HUBSPOT_STAGE_AWAITING ?? null,
+            stageLost: e.HUBSPOT_STAGE_LOST ?? null,
+            portalId: e.HUBSPOT_PORTAL_ID ?? null,
+          },
+        }
+      : null,
+    history: e.VAANI_API_KEY ? (id) => findCallInHistory({ apiKey: e.VAANI_API_KEY as string, pages: 1 }, id) : null,
     analyse:
       geminiKey && rubric
         ? async (transcript, today) => {
@@ -41,7 +63,9 @@ export function pipelineDeps(): PipelineDeps {
               jsonSchema: postCallJsonSchema as unknown as Record<string, unknown>,
               validate: postCallShape,
               maxOutputTokens: 6144,
-              timeoutMs: 45_000,
+              // Worst case ≈ 2 × 30 s: the designers' alert (about 2 minutes after the call) comes right after.
+              timeoutMs: 30_000,
+              attempts: 2,
             });
             return { result: normalisePostCall(res.data), usage: res.usage, model: res.model, attempts: res.attempts };
           }

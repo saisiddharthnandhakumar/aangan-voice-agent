@@ -1,11 +1,17 @@
 import type { CalListedBooking } from "@/lib/cal/client";
+import type { HubspotApi } from "@/lib/hubspot/client";
+import type { HubspotIds } from "@/lib/hubspot/mapping";
+import type { SendOptions, SentMessage } from "@/lib/telegram/client";
 import type { GeminiUsage } from "@/lib/gemini/client";
 import type { PostCallResult } from "@/lib/gemini/postcall";
 import type { BusinessHours, PricingConfig } from "@/lib/rules";
 import type { VaaniHistoryItem } from "@/lib/vaani/history";
 import type { PipelineRepo } from "./repo";
 
-/** Post-call steps in run order (PRD P2, plus enrich, booking reconcile and cost). */
+/**
+ * Post-call steps in run order (PRD P2, plus enrich, booking reconcile and cost). Telegram runs before
+ * HubSpot on purpose: a HubSpot outage and its retries must never delay a designer's alert (AT21).
+ */
 export const PIPELINE_STEPS = [
   "save",
   "enrich",
@@ -14,9 +20,9 @@ export const PIPELINE_STEPS = [
   "tier",
   "leak_check",
   "cost",
+  "telegram",
   "hubspot_log",
   "hubspot_deal",
-  "telegram",
 ] as const;
 export type StepName = (typeof PIPELINE_STEPS)[number];
 
@@ -27,10 +33,23 @@ export interface PipelineConfig {
   testAgentIds: string[];
   geminiPriceInPerMtokInr?: number;
   geminiPriceOutPerMtokInr?: number;
-  /** Pending bookings younger than this are given time to settle before reconciling. */
+  /** A pending booking younger than this is left for the daily reconcile (the alert must not wait for it). */
   reconcileAfterMs: number;
-  hubspotConfigured: boolean;
-  telegramConfigured: boolean;
+  appBaseUrl?: string;
+}
+
+/** Telegram, bound to the configured bot and chats. Null when TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing. */
+export interface TelegramApi {
+  designersChatId: string;
+  /** Falls back to the designers' group when no founder chat is set. */
+  founderChatId: string | null;
+  send(o: SendOptions): Promise<SentMessage>;
+  edit(o: SendOptions & { messageId: string }): Promise<SentMessage>;
+}
+
+export interface HubspotWiring {
+  api: HubspotApi;
+  ids: HubspotIds;
 }
 
 export interface PipelineDeps {
@@ -42,6 +61,8 @@ export interface PipelineDeps {
   history: ((vaaniCallId: string) => Promise<VaaniHistoryItem | null>) | null;
   /** Gemini post-call analysis; null when the key or the rubric is missing. */
   analyse: ((transcript: string, todayIst: string) => Promise<{ result: PostCallResult; usage: GeminiUsage; model: string; attempts: number }>) | null;
+  telegram: TelegramApi | null;
+  hubspot: HubspotWiring | null;
   /** Cal.com bookings lookup for reconciliation; null when Cal.com is not configured. */
   calLookup: ((q: { attendeeEmail: string; eventTypeId?: number; afterCreatedAt?: string }) => Promise<CalListedBooking[]>) | null;
 }

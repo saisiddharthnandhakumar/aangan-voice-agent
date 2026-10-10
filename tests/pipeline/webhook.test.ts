@@ -6,7 +6,7 @@ import { runPipeline } from "@/lib/pipeline/run";
 import type { PipelineDeps } from "@/lib/pipeline/types";
 import { submitAssessment } from "@/lib/tools/service";
 import { deps as toolDeps } from "../tools/fakes";
-import { memoryPipeline, pipelineDeps, postCall, USAGE, vaaniEvents } from "./fakes";
+import { fakeHubspot, fakeTelegram, memoryPipeline, pipelineDeps, postCall, USAGE, vaaniEvents } from "./fakes";
 
 const START = new Date("2026-10-12T05:28:00Z"); // Monday 10:58 IST
 const TOOL_TIME = () => new Date("2026-10-12T05:30:00Z");
@@ -245,7 +245,7 @@ describe("cost (P7)", () => {
 });
 
 describe("pipeline steps and retries (P2)", () => {
-  it("records every step; HubSpot and Telegram are skipped until Phase 5", async () => {
+  it("records every step; HubSpot and Telegram are skipped when not configured", async () => {
     const m = memoryPipeline();
     const out = await postAll("room-steps", pipelineDeps({ repo: m.repo }));
     expect(out?.pipeline?.map((s) => [s.step, s.status])).toEqual([
@@ -256,16 +256,16 @@ describe("pipeline steps and retries (P2)", () => {
       ["tier", "succeeded"],
       ["leak_check", "succeeded"],
       ["cost", "succeeded"],
+      ["telegram", "skipped"],
       ["hubspot_log", "skipped"],
       ["hubspot_deal", "skipped"],
-      ["telegram", "skipped"],
     ]);
     expect(m.steps.find((s) => s.step === "hubspot_log")?.lastError).toBe("missing_config");
   });
 
   it("is_test calls are skipped for HubSpot and Telegram even when configured (P8, AT11)", async () => {
     const m = memoryPipeline();
-    const d = pipelineDeps({ repo: m.repo, config: { hubspotConfigured: true, telegramConfigured: true } });
+    const d = pipelineDeps({ repo: m.repo, telegram: fakeTelegram().api, hubspot: fakeHubspot().wiring });
     const ev = vaaniEvents("room-test", { start: START, seconds: 200 });
     for (const e of [ev.started, ev.ended, { ...ev.post, is_test: true }]) await post(e, d);
     expect(m.calls[0].isTest).toBe(true);
@@ -345,13 +345,24 @@ describe("booking reconcile", () => {
     expect(queries[0]).toMatchObject({ attendeeEmail: `${ref.toLowerCase()}@example.com`, eventTypeId: 222 });
   });
 
-  it("marks it failed when Cal.com does not have it, and waits until it is 2 minutes old", async () => {
+  it("marks it failed when Cal.com does not have it", async () => {
     const m = memoryPipeline();
     await pendingCall(m);
-    const d = pipelineDeps({ repo: m.repo, now: new Date("2026-10-12T05:31:00Z"), calLookup: async () => [] });
+    const d = pipelineDeps({ repo: m.repo, now: new Date("2026-10-12T06:00:00Z"), calLookup: async () => [] });
     await postAll("room-rec2", d);
-    expect(d.slept).toContain(60_000);
     expect(m.bookings[0].status).toBe("failed");
     expect(m.calls[0].status).toBe("awaiting_designer");
+  });
+
+  it("leaves a booking younger than 2 minutes pending, without making the alert wait for it", async () => {
+    const m = memoryPipeline();
+    await pendingCall(m);
+    let looked = 0;
+    const d = pipelineDeps({ repo: m.repo, now: new Date("2026-10-12T05:31:00Z"), calLookup: async () => (looked++, []) });
+    await postAll("room-rec3", d);
+    expect(looked).toBe(0);
+    expect(d.slept).toEqual([]);
+    expect(m.bookings[0].status).toBe("pending");
+    expect(m.steps.find((s) => s.step === "booking")).toMatchObject({ status: "skipped", lastError: "too_recent" });
   });
 });

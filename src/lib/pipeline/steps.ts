@@ -1,6 +1,10 @@
+import { errorSummary } from "@/lib/http/retry";
 import { normalisePhone } from "@/lib/phone";
 import { agentTurns, detectPriceLeak, finalStatus, findRepeatOf, isWithinBusinessHours, RULES_CONFIG } from "@/lib/rules";
 import { geminiCostInr } from "@/lib/gemini/client";
+import { logCallToHubspot, syncDeal, type HubspotCtx } from "@/lib/hubspot/sync";
+import { planAlerts, type PlannedAlert } from "@/lib/telegram/alerts";
+import { TelegramError } from "@/lib/telegram/client";
 import { istParts } from "@/lib/rules/time";
 import { isTestMode } from "@/lib/tools/service";
 import type { CallRow } from "@/lib/tools/repo";
@@ -99,9 +103,8 @@ const booking: StepFn = async (callId, deps) => {
   if (b.status !== "pending") return done(`already ${b.status}`);
   if (!deps.calLookup) return skipped("missing_config");
   if (!b.attendeeEmail) throw new Error("pending booking has no attendee email");
-  const age = deps.now().getTime() - b.createdAt.getTime();
-  const wait = deps.config.reconcileAfterMs - age;
-  if (wait > 0) await deps.sleep(Math.min(wait, deps.config.reconcileAfterMs));
+  // Too recent to reconcile: the alert must not wait for it. The daily job (and a dashboard retry) settles it.
+  if (deps.now().getTime() - b.createdAt.getTime() < deps.config.reconcileAfterMs) return skipped("too_recent");
   const call = await load(callId, deps);
   const listed = await deps.calLookup({
     attendeeEmail: b.attendeeEmail,
@@ -212,12 +215,94 @@ const cost: StepFn = async (callId, deps) => {
   return done();
 };
 
-// ------------------------------------------------------------------ HubSpot and Telegram (Phase 5)
-const phase5 = (configured: (deps: PipelineDeps) => boolean): StepFn => async (callId, deps) => {
+// ------------------------------------------------------------------ telegram
+type AlertsSent = Partial<Record<PlannedAlert["key"], boolean>>;
+
+/**
+ * Sends the alerts a call needs (see src/lib/telegram/alerts.ts). Each alert is sent once: a flag in
+ * facts.pipeline.alerts_sent marks it, so a retry after a partial failure resends only what is missing.
+ * A redial from the same number edits the first alert instead of sending a second one (AT15).
+ */
+const telegram: StepFn = async (callId, deps) => {
   const call = await load(callId, deps);
   if (call.isTest) return skipped("is_test"); // P8
-  if (!configured(deps)) return skipped("missing_config");
-  return skipped("not_built_until_phase_5");
+  const tg = deps.telegram;
+  if (!tg) return skipped("missing_config");
+  const booking = await deps.repo.getBookingForCall(callId);
+  const plan = planAlerts(call, { appBaseUrl: deps.config.appBaseUrl, booking, founderChatConfigured: tg.founderChatId !== null });
+  if (!plan.length) return skipped("no_alert_for_this_call");
+
+  const pipelineFacts = ((call.facts as { pipeline?: { alerts_sent?: AlertsSent } } | null)?.pipeline ?? {}) as { alerts_sent?: AlertsSent };
+  const sent: AlertsSent = { ...(pipelineFacts.alerts_sent ?? {}) };
+  const errors: string[] = [];
+  let anySent = false;
+
+  for (const alert of plan) {
+    if (sent[alert.key]) continue;
+    const chatId = alert.chat === "founder" ? (tg.founderChatId ?? tg.designersChatId) : tg.designersChatId;
+    const text = alert.chat === "founder" && !tg.founderChatId ? `[Founder alert, no founder chat set]\n${alert.text}` : alert.text;
+    try {
+      if (alert.key === "lead") {
+        const root = call.repeatOfCallId ? await deps.repo.getCall(call.repeatOfCallId) : null;
+        const ids = await sendOrEditLead(tg, chatId, text, alert, root);
+        await deps.repo.updateCall(callId, { telegramSentAt: deps.now(), telegramChatId: ids.chatId, telegramMessageId: ids.messageId });
+      } else {
+        await tg.send({ chatId, text, button: alert.button });
+      }
+      sent[alert.key] = true;
+      anySent = true;
+    } catch (err) {
+      errors.push(`${alert.key}: ${errorSummary(err)}`);
+    }
+  }
+  const fresh = await load(callId, deps);
+  await deps.repo.updateCall(callId, { facts: withPipelineFacts(fresh, { alerts_sent: sent }) });
+  if (errors.length) throw new Error(errors.join(" | "));
+  return anySent ? done(plan.map((p) => p.key).join(",")) : done("already_sent");
+};
+
+async function sendOrEditLead(
+  tg: NonNullable<PipelineDeps["telegram"]>,
+  chatId: string,
+  text: string,
+  alert: PlannedAlert,
+  root: CallRow | null,
+): Promise<{ chatId: string; messageId: string }> {
+  if (root?.telegramMessageId && root.telegramChatId === chatId) {
+    try {
+      return await tg.edit({ chatId, messageId: root.telegramMessageId, text, button: alert.button });
+    } catch (err) {
+      // Only a message that cannot be edited any more (gone, not the bot's) falls through to a fresh one.
+      if (!(err instanceof TelegramError) || err.status !== 400) throw err;
+    }
+  }
+  return tg.send({ chatId, text, button: alert.button });
+}
+
+// ------------------------------------------------------------------ hubspot_log, hubspot_deal
+function hubspotCtx(deps: PipelineDeps): HubspotCtx | null {
+  if (!deps.hubspot) return null;
+  return { api: deps.hubspot.api, ids: deps.hubspot.ids, repo: deps.repo, appBaseUrl: deps.config.appBaseUrl };
+}
+
+/** Every non-test call is logged: a contact and a call record, in every category and tier. */
+const hubspotLog: StepFn = async (callId, deps) => {
+  const call = await load(callId, deps);
+  if (call.isTest) return skipped("is_test"); // P8
+  const ctx = hubspotCtx(deps);
+  if (!ctx) return skipped("missing_config");
+  const r = await logCallToHubspot(callId, ctx);
+  return done(`${r.contactCreated ? "contact created" : "contact reused"}, ${r.callRecordCreated ? "call logged" : "call already logged"}`);
+};
+
+/** Deals: Green and Amber automatically, Red only on Rescue. */
+const hubspotDeal: StepFn = async (callId, deps) => {
+  const call = await load(callId, deps);
+  if (call.isTest) return skipped("is_test");
+  const ctx = hubspotCtx(deps);
+  if (!ctx) return skipped("missing_config");
+  const r = await syncDeal(callId, ctx);
+  return r === "none" ? skipped("no_deal_for_this_call") : done(`deal ${r}`);
 };
 
 export const STEPS: Record<StepName, StepFn> = {
@@ -228,7 +313,7 @@ export const STEPS: Record<StepName, StepFn> = {
   tier,
   leak_check: leakCheck,
   cost,
-  hubspot_log: phase5((d) => d.config.hubspotConfigured),
-  hubspot_deal: phase5((d) => d.config.hubspotConfigured),
-  telegram: phase5((d) => d.config.telegramConfigured),
+  telegram,
+  hubspot_log: hubspotLog,
+  hubspot_deal: hubspotDeal,
 };
