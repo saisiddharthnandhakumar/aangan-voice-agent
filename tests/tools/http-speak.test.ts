@@ -51,3 +51,15 @@ describe("speakable slots", () => {
     expect(picked.map((p) => p.start)).toEqual(["2026-10-13T03:30:00Z", "2026-10-14T03:30:00Z"]);
   });
 });
+
+describe("readArgs", () => {
+  it("reads JSON, form bodies and query parameters", async () => {
+    const { readArgs } = await import("@/lib/tools/http");
+    const json = await readArgs(new Request("https://x.test/t?call_mode=web", { method: "POST", body: '{"call_id":"A"}' }));
+    expect(json.args).toEqual({ call_id: "A", call_mode: "web" });
+    const form = await readArgs(new Request("https://x.test/t", { method: "POST", body: "call_id=B&consult_type=call", headers: { "content-type": "application/x-www-form-urlencoded" } }));
+    expect(form.args).toEqual({ call_id: "B", consult_type: "call" });
+    const get = await readArgs(new Request("https://x.test/t?call_id=C&preferred_date=2026-10-14", { method: "GET" }));
+    expect(get.args).toEqual({ call_id: "C", preferred_date: "2026-10-14" });
+  });
+});

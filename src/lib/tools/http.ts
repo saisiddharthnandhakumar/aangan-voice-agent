@@ -95,8 +95,25 @@ export interface ToolRouteOptions<B> {
 const json = (body: unknown, status = 200) =>
   Response.json(body, { status, headers: { "cache-control": "no-store" } });
 
+/** Body as JSON, form or text; query parameters fill in anything the body lacks (any method). */
+export async function readArgs(req: Request): Promise<{ raw: unknown; args: Record<string, unknown> }> {
+  let raw: unknown = null;
+  const text = req.method === "GET" || req.method === "HEAD" ? "" : await req.text().catch(() => "");
+  if (text) {
+    try {
+      raw = JSON.parse(text);
+    } catch {
+      const form = new URLSearchParams(text);
+      raw = [...form.keys()].length ? Object.fromEntries(form) : text.slice(0, 2000);
+    }
+  }
+  const args = unwrapArgs(raw);
+  for (const [k, v] of new URL(req.url).searchParams) if (!(k in args)) args[k] = v;
+  return { raw, args };
+}
+
 export function toolRoute<B>(opts: ToolRouteOptions<B>) {
-  return async function POST(req: Request): Promise<Response> {
+  return async function handler(req: Request): Promise<Response> {
     const started = Date.now();
     const e = env();
     if (!secretMatches(req.headers.get(SECRET_HEADER), e.VAANI_TOOL_SECRET)) {
@@ -108,7 +125,7 @@ export function toolRoute<B>(opts: ToolRouteOptions<B>) {
           await drizzleToolsRepo(db()).logToolCall({
             callId: null,
             tool: opts.tool,
-            request: { headers, secret: given ? `present, ${given.length} chars` : "missing" },
+            request: { method: req.method, headers, secret: given ? `present, ${given.length} chars` : "missing" },
             response: { error: "unauthorized" },
             latencyMs: Date.now() - started,
           });
@@ -123,13 +140,7 @@ export function toolRoute<B>(opts: ToolRouteOptions<B>) {
       return json({ error: "rate_limited", message: "Sorry, one moment please." }, 429);
     }
 
-    let raw: unknown = null;
-    try {
-      raw = await req.json();
-    } catch {
-      raw = null;
-    }
-    const args = unwrapArgs(raw);
+    const { raw, args } = await readArgs(req);
     const deps = toolDeps();
 
     let body: B;
@@ -156,7 +167,7 @@ export function toolRoute<B>(opts: ToolRouteOptions<B>) {
         await deps.repo.logToolCall({
           callId,
           tool: opts.tool,
-          request: { body: raw, headers: safeHeaders(req) },
+          request: { method: req.method, query: new URL(req.url).search.slice(0, 300), body: raw, headers: safeHeaders(req) },
           response: error ? { body, error } : { body },
           latencyMs: latency,
         });
