@@ -100,6 +100,22 @@ export function toolRoute<B>(opts: ToolRouteOptions<B>) {
     const started = Date.now();
     const e = env();
     if (!secretMatches(req.headers.get(SECRET_HEADER), e.VAANI_TOOL_SECRET)) {
+      // Logged (headers only, never the secret or body) so a misconfigured Vaani tool is visible.
+      const given = req.headers.get(SECRET_HEADER);
+      const headers = safeHeaders(req);
+      after(async () => {
+        try {
+          await drizzleToolsRepo(db()).logToolCall({
+            callId: null,
+            tool: opts.tool,
+            request: { headers, secret: given ? `present, ${given.length} chars` : "missing" },
+            response: { error: "unauthorized" },
+            latencyMs: Date.now() - started,
+          });
+        } catch {
+          // never break the response
+        }
+      });
       return json({ error: "unauthorized" }, 401);
     }
     const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
