@@ -20,7 +20,7 @@ Inbound phone enquiry agent for Aangan Studio (Pune interior design). Vaani answ
 - All Vaani payload parsing lives in `src/lib/vaani/events.ts`. All tier-to-status/action mapping lives in `src/lib/rules/outcome.ts`.
 - External services are used through small clients with injectable `fetch`/`sleep` so tests need no network. Tests use in-memory doubles (`tests/pipeline/fakes.ts`, `tests/tools/fakes.ts`) and PGlite for SQL (`tests/dashboard/harness.ts`).
 - Drizzle on Neon HTTP: no interactive transactions; use single statements, `onConflict`, or `db.batch`. In a single-table select, columns inside select-list SQL render unqualified: use `callIdRef` in correlated subqueries.
-- Dashboard: server components and actions check the role themselves (`requireRole`); the proxy is only an early redirect. Never show the budget floor, any pricing figure, per-call estimated value, or the caller's budget words.
+- Dashboard: **login is OFF by default** (`DASHBOARD_LOGIN`, user decision 2026-10-10, made knowing callers' data is then open to anyone with the address). With it on, server components and actions check the role themselves (`requireRole`); the proxy is only an early redirect. Never show the budget floor, any pricing figure, per-call estimated value, or the caller's budget words.
 
 ## Commands
 `pnpm check` · `pnpm lint` · `pnpm leak:scan` · `pnpm eval:agent --runs=3` · `pnpm e2e:webhook` · `pnpm db:generate && pnpm db:migrate` · `pnpm rubric:build && pnpm vaani:prompt` (then paste the prompt into Vaani) · `pnpm rubric:env`. The full list is in `README.md`.
