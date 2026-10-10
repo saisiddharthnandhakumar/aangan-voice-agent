@@ -100,9 +100,14 @@ caller.
 - volunteered_budget_low_inr and volunteered_budget_high_inr: only a number the
   caller volunteered, in rupees (1.5 lakh = 150000; a single number goes in
   both). Otherwise null.
-- flags: "structural_changes" if they want walls moved or structural work;
-  "wants_human" if they insist on a person; "frustrated_repeat" if they say
-  they called or wrote before and heard nothing.
+- The five criteria go in as pairs: real_project_status and
+  real_project_evidence, service_area_status and service_area_evidence,
+  timeline_status and timeline_evidence, budget_status and budget_evidence,
+  decision_maker_status and decision_maker_evidence. Each status is pass, fail
+  or unclear; each evidence is the caller's own words, briefly.
+- flags: comma-separated text, any of "structural_changes" (walls moved or
+  structural work), "wants_human" (insists on a person), "frustrated_repeat"
+  (called or wrote before and heard nothing). Empty text if none.
 - timeline_move_asked: false, until you have asked whether the date can move.
 - Use null for anything the caller did not say. Never invent a fact.
 

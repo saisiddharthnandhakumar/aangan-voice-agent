@@ -168,138 +168,74 @@
             ],
             "description": "Existing clients only, one line"
           },
-          "criteria": {
-            "type": "object",
-            "properties": {
-              "real_project": {
-                "type": "object",
-                "description": "Design and execution wanted, not advice only",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pass",
-                      "fail",
-                      "unclear"
-                    ]
-                  },
-                  "evidence": {
-                    "type": "string",
-                    "description": "The caller's own words, briefly"
-                  }
-                },
-                "required": [
-                  "status",
-                  "evidence"
-                ]
-              },
-              "service_area": {
-                "type": "object",
-                "description": "Site in Pune city or PCMC",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pass",
-                      "fail",
-                      "unclear"
-                    ]
-                  },
-                  "evidence": {
-                    "type": "string",
-                    "description": "The caller's own words, briefly"
-                  }
-                },
-                "required": [
-                  "status",
-                  "evidence"
-                ]
-              },
-              "timeline": {
-                "type": "object",
-                "description": "When it must be complete",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pass",
-                      "fail",
-                      "unclear"
-                    ]
-                  },
-                  "evidence": {
-                    "type": "string",
-                    "description": "The caller's own words, briefly"
-                  }
-                },
-                "required": [
-                  "status",
-                  "evidence"
-                ]
-              },
-              "budget": {
-                "type": "object",
-                "description": "Pass unless the caller volunteered a number; never ask",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pass",
-                      "fail",
-                      "unclear"
-                    ]
-                  },
-                  "evidence": {
-                    "type": "string",
-                    "description": "The caller's own words, briefly"
-                  }
-                },
-                "required": [
-                  "status",
-                  "evidence"
-                ]
-              },
-              "decision_maker": {
-                "type": "object",
-                "description": "Fail only if clearly researching for someone else",
-                "properties": {
-                  "status": {
-                    "type": "string",
-                    "enum": [
-                      "pass",
-                      "fail",
-                      "unclear"
-                    ]
-                  },
-                  "evidence": {
-                    "type": "string",
-                    "description": "The caller's own words, briefly"
-                  }
-                },
-                "required": [
-                  "status",
-                  "evidence"
-                ]
-              }
-            },
-            "required": [
-              "real_project",
-              "service_area",
-              "timeline",
-              "budget",
-              "decision_maker"
-            ]
+          "real_project_status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "unclear"
+            ],
+            "description": "Pass = design AND execution wanted"
+          },
+          "real_project_evidence": {
+            "type": "string",
+            "description": "The caller's own words, briefly"
+          },
+          "service_area_status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "unclear"
+            ],
+            "description": "Pass = site in Pune city or PCMC"
+          },
+          "service_area_evidence": {
+            "type": "string",
+            "description": "The caller's own words, briefly"
+          },
+          "timeline_status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "unclear"
+            ],
+            "description": "When the project must be complete"
+          },
+          "timeline_evidence": {
+            "type": "string",
+            "description": "The caller's own words, briefly"
+          },
+          "budget_status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "unclear"
+            ],
+            "description": "pass unless the caller volunteered a number; never ask"
+          },
+          "budget_evidence": {
+            "type": "string",
+            "description": "The caller's own words, briefly"
+          },
+          "decision_maker_status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "unclear"
+            ],
+            "description": "fail only if clearly researching for someone else"
+          },
+          "decision_maker_evidence": {
+            "type": "string",
+            "description": "The caller's own words, and who decides if someone else"
           },
           "flags": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "enum": [
-                "structural_changes",
-                "wants_human",
-                "frustrated_repeat"
-              ]
-            }
+            "type": "string",
+            "description": "Comma-separated, any of: structural_changes, wants_human, frustrated_repeat. Empty if none."
           },
           "timeline_move_asked": {
             "type": "boolean",
@@ -310,7 +246,11 @@
           "call_id",
           "call_mode",
           "call_category",
-          "criteria"
+          "real_project_status",
+          "service_area_status",
+          "timeline_status",
+          "budget_status",
+          "decision_maker_status"
         ]
       },
       "returns": "{ call_id, tier, action: offer_booking | callback | decline | escalate | close_non_enquiry | ask_date_move, callback_phrase, say_reason, reasons }",
@@ -336,29 +276,17 @@
         "referral_source": "friend",
         "existing_project_designer": null,
         "issue_summary": null,
-        "criteria": {
-          "real_project": {
-            "status": "pass",
-            "evidence": "redo the whole thing"
-          },
-          "service_area": {
-            "status": "pass",
-            "evidence": "Kothrud"
-          },
-          "timeline": {
-            "status": "pass",
-            "evidence": "by March, no rush"
-          },
-          "budget": {
-            "status": "pass",
-            "evidence": "not mentioned"
-          },
-          "decision_maker": {
-            "status": "pass",
-            "evidence": "my husband agrees"
-          }
-        },
-        "flags": [],
+        "real_project_status": "pass",
+        "real_project_evidence": "redo the whole thing",
+        "service_area_status": "pass",
+        "service_area_evidence": "Kothrud",
+        "timeline_status": "pass",
+        "timeline_evidence": "by March, no rush",
+        "budget_status": "pass",
+        "budget_evidence": "not mentioned",
+        "decision_maker_status": "pass",
+        "decision_maker_evidence": "my husband and I decide",
+        "flags": "",
         "timeline_move_asked": false
       }
     },

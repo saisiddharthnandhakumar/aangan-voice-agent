@@ -71,13 +71,13 @@ const enumOr = <T extends readonly [string, ...string[]]>(values: T, fallback: T
   }, z.enum(values));
 
 const criterion = z
-  .object({
+  .preprocess((v) => (typeof v === "string" ? { status: v, evidence: null } : v), z.object({
     status: enumOr(CRITERION_STATUSES, "unclear"),
     evidence: text,
-  })
+  }))
   .default({ status: "unclear", evidence: null });
 
-export const assessmentInputSchema = z.object({
+export const assessmentInputObject = z.object({
   call_id: z.preprocess((v) => (v == null ? "" : String(v).trim()), z.string()),
   call_category: enumOr(CALL_CATEGORIES, "other").default("enquiry"),
   caller_name: text,
@@ -115,7 +115,12 @@ export const assessmentInputSchema = z.object({
     }),
   flags: z
     .preprocess(
-      (v) => (Array.isArray(v) ? v.map((f) => String(f).trim().toLowerCase()) : []),
+      (v) =>
+        Array.isArray(v)
+          ? v.map((f) => String(f).trim().toLowerCase())
+          : typeof v === "string"
+            ? v.split(/[,;\s]+/).map((f) => f.trim().toLowerCase()).filter(Boolean)
+            : [],
       z.array(z.string()),
     )
     .transform((fs) => fs.filter((f): f is (typeof AGENT_FLAGS)[number] => (AGENT_FLAGS as readonly string[]).includes(f)))
@@ -126,7 +131,45 @@ export const assessmentInputSchema = z.object({
     .default(false),
 });
 
-export type AssessmentInput = z.infer<typeof assessmentInputSchema>;
+/**
+ * Flat field names accepted alongside the nested `criteria` object, because some tool runners
+ * (Vaani's custom tools among them, UNVERIFIED) handle flat parameters more reliably:
+ * real_project_status / real_project_evidence, ... decision_maker_status / decision_maker_evidence.
+ */
+export const FLAT_CRITERIA_FIELDS = CRITERIA.flatMap((c) => [`${c}_status`, `${c}_evidence`]);
+
+function normaliseAssessmentBody(v: unknown): unknown {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return v;
+  const body = { ...(v as Record<string, unknown>) };
+  let criteria: Record<string, unknown> = {};
+  if (typeof body.criteria === "string") {
+    try {
+      criteria = JSON.parse(body.criteria);
+    } catch {
+      criteria = {};
+    }
+  } else if (body.criteria && typeof body.criteria === "object") {
+    criteria = { ...(body.criteria as Record<string, unknown>) };
+  }
+  let flat = false;
+  for (const c of CRITERIA) {
+    const status = body[`${c}_status`];
+    const evidence = body[`${c}_evidence`];
+    if (status !== undefined || evidence !== undefined) {
+      flat = true;
+      const existing = (criteria[c] && typeof criteria[c] === "object" ? criteria[c] : {}) as Record<string, unknown>;
+      criteria[c] = { ...existing, ...(status !== undefined ? { status } : {}), ...(evidence !== undefined ? { evidence } : {}) };
+    }
+    delete body[`${c}_status`];
+    delete body[`${c}_evidence`];
+  }
+  if (flat || Object.keys(criteria).length) body.criteria = criteria;
+  return body;
+}
+
+export const assessmentInputSchema = z.preprocess(normaliseAssessmentBody, assessmentInputObject);
+
+export type AssessmentInput = z.infer<typeof assessmentInputObject>;
 
 export interface CriterionResult {
   status: CriterionStatus;

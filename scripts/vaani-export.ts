@@ -9,15 +9,6 @@ import { CALL_CATEGORIES, CRITERION_STATUSES, PROJECT_TYPES, SCOPE_TYPES } from 
 const BASE = "https://YOUR-APP.vercel.app/api/vaani/tools";
 const str = (description: string) => ({ type: ["string", "null"], description });
 const num = (description: string) => ({ type: ["number", "null"], description });
-const criterion = (what: string) => ({
-  type: "object",
-  description: what,
-  properties: {
-    status: { type: "string", enum: [...CRITERION_STATUSES] },
-    evidence: { type: "string", description: "The caller's own words, briefly" },
-  },
-  required: ["status", "evidence"],
-});
 const callId = {
   type: "string",
   description: "The call_id returned by your first submit_assessment in this call. Empty on the very first submit_assessment.",
@@ -56,21 +47,23 @@ const tools = [
         referral_source: str("How they heard about the studio"),
         existing_project_designer: str("Existing clients only"),
         issue_summary: str("Existing clients only, one line"),
-        criteria: {
-          type: "object",
-          properties: {
-            real_project: criterion("Design and execution wanted, not advice only"),
-            service_area: criterion("Site in Pune city or PCMC"),
-            timeline: criterion("When it must be complete"),
-            budget: criterion("Pass unless the caller volunteered a number; never ask"),
-            decision_maker: criterion("Fail only if clearly researching for someone else"),
-          },
-          required: ["real_project", "service_area", "timeline", "budget", "decision_maker"],
-        },
-        flags: { type: "array", items: { type: "string", enum: ["structural_changes", "wants_human", "frustrated_repeat"] } },
+        real_project_status: { type: "string", enum: ["pass", "fail", "unclear"], description: "Pass = design AND execution wanted" },
+        real_project_evidence: { type: "string", description: "The caller's own words, briefly" },
+        service_area_status: { type: "string", enum: ["pass", "fail", "unclear"], description: "Pass = site in Pune city or PCMC" },
+        service_area_evidence: { type: "string", description: "The caller's own words, briefly" },
+        timeline_status: { type: "string", enum: ["pass", "fail", "unclear"], description: "When the project must be complete" },
+        timeline_evidence: { type: "string", description: "The caller's own words, briefly" },
+        budget_status: { type: "string", enum: ["pass", "fail", "unclear"], description: "pass unless the caller volunteered a number; never ask" },
+        budget_evidence: { type: "string", description: "The caller's own words, briefly" },
+        decision_maker_status: { type: "string", enum: ["pass", "fail", "unclear"], description: "fail only if clearly researching for someone else" },
+        decision_maker_evidence: { type: "string", description: "The caller's own words, and who decides if someone else" },
+        flags: { type: "string", description: "Comma-separated, any of: structural_changes, wants_human, frustrated_repeat. Empty if none." },
         timeline_move_asked: { type: "boolean", description: "True once you have asked whether the date can move" },
       },
-      required: ["call_id", "call_mode", "call_category", "criteria"],
+      required: [
+        "call_id", "call_mode", "call_category",
+        "real_project_status", "service_area_status", "timeline_status", "budget_status", "decision_maker_status",
+      ],
     },
     returns: "{ call_id, tier, action: offer_booking | callback | decline | escalate | close_non_enquiry | ask_date_move, callback_phrase, say_reason, reasons }",
     example: {
@@ -95,14 +88,17 @@ const tools = [
       referral_source: "friend",
       existing_project_designer: null,
       issue_summary: null,
-      criteria: {
-        real_project: { status: "pass", evidence: "redo the whole thing" },
-        service_area: { status: "pass", evidence: "Kothrud" },
-        timeline: { status: "pass", evidence: "by March, no rush" },
-        budget: { status: "pass", evidence: "not mentioned" },
-        decision_maker: { status: "pass", evidence: "my husband agrees" },
-      },
-      flags: [],
+      real_project_status: "pass",
+      real_project_evidence: "redo the whole thing",
+      service_area_status: "pass",
+      service_area_evidence: "Kothrud",
+      timeline_status: "pass",
+      timeline_evidence: "by March, no rush",
+      budget_status: "pass",
+      budget_evidence: "not mentioned",
+      decision_maker_status: "pass",
+      decision_maker_evidence: "my husband and I decide",
+      flags: "",
       timeline_move_asked: false,
     },
   },
