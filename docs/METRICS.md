@@ -1,6 +1,6 @@
 # Founder metrics: exact definitions
 
-Every number on the founder view is one plain SQL aggregate in `src/lib/dashboard/metrics.ts`, tested against a real Postgres in `tests/dashboard/metrics.test.ts` (each metric is compared with hand-computed values, with an independent JavaScript recomputation from the raw rows, and, for the headline numbers, with hand-written SQL). That is acceptance test 22.
+Every number on the Founder's view is one plain SQL aggregate in `src/lib/dashboard/metrics.ts`, tested against a real Postgres in `tests/dashboard/metrics.test.ts` (each metric is compared with hand-computed values, with an independent JavaScript recomputation from the raw rows, and, for the headline numbers, with hand-written SQL). That is acceptance test 22.
 
 Rules for all of them: **test calls are never counted**; a call's time is Vaani's start time, else when we first saw it; dates are chosen in IST (a day is `+05:30` midnight to midnight) and stored in UTC. "Range" metrics use the chosen date range; "now" metrics ignore it.
 
@@ -33,3 +33,23 @@ Rules for all of them: **test calls are never counted**; a call's time is Vaani'
 | Calls per day, cost per day | Grouped by the IST date of the call time |
 
 What is deliberately **not** shown anywhere: the budget floor, any pricing figure, per-call estimated values (project size beside an estimate would reveal the rates), the caller's budget words, and transcripts in the CSV.
+
+## What the Founder's view shows now
+
+The page shows four headlines, three panels, one quiet row and two charts; everything else in the table above stays in `calculate` (metrics.ts) and the CSV.
+
+| On the page | Derived from |
+|---|---|
+| Answered within 5 minutes | (calls with a measured answer time minus those over 5 minutes) / measured calls. Ring time is UNVERIFIED |
+| After-hours calls captured | After-hours calls; share of all calls; of those, the ones with an accepted booking (`afterHoursBooked`) |
+| Design calls booked | Bookings; booking rate of Green and Amber |
+| Leads waiting too long | "Waiting too long (now)" above; warn tint only above 0 |
+| Leads by tier | Tier mix as one stacked bar |
+| Time to hand a lead to a designer | Average time to handoff; count over 2 minutes |
+| What it costs to run | Total, per call, per booked design call, Vaani and Gemini split |
+| Pipeline generated | Estimated pipeline in aggregate, shown only with at least 5 qualified leads; always an estimate, never per call |
+| Price leaks | Count; OK at 0, otherwise a link to the All tab filtered to price leaks |
+| Calls per day | Working hours vs after hours per IST day (`series.callsPerDay.working` / `afterHours`) |
+| Cost per day | Total cost per IST day |
+
+Dropped from the page but kept in the code and CSV: live calls, active leads, answered/missed, dropped before assessment, repeat callers, escalations, lead source, HubSpot metrics (one warning appears if a sync step failed), Green-only booking rate.

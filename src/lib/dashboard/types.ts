@@ -26,8 +26,13 @@ export interface ListFilters {
   priority?: "high" | "normal";
   afterHours?: "yes" | "no";
   includeTests?: boolean;
+  /** Only calls where the agent seems to have said a figure (the Founder's view links here). */
+  priceLeak?: boolean;
   page?: number;
   pageSize?: number;
+  /** Booked tab: upcoming design calls first. */
+  order?: "design_call";
+  now?: Date;
 }
 
 export interface CallListItem {
@@ -55,4 +60,21 @@ export interface Range {
   /** inclusive IST dates */
   from: string;
   to: string;
+}
+
+/** The three tabs the designers see. The seven query tabs above stay as the building blocks. */
+export const VIEW_TABS = ["todo", "booked", "all"] as const;
+export type ViewTab = (typeof VIEW_TABS)[number];
+export const VIEW_TAB_LABELS: Record<ViewTab, string> = { todo: "To do", booked: "Booked", all: "All" };
+
+/** Filters that apply on every tab (the Filter sheet). */
+export type SheetFilters = Omit<ListFilters, "tab" | "page" | "pageSize">;
+
+export interface TodoGroups {
+  /** Amber awaiting review, escalations, dropped calls needing a callback: high priority first, then oldest. */
+  needsYou: CallListItem[];
+  /** Design calls today (IST), by time. */
+  today: CallListItem[];
+  /** Design calls after today, by time. */
+  comingUp: CallListItem[];
 }

@@ -8,7 +8,7 @@ export function LoginForm({ next }: { next: string }) {
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="next" value={next} />
-      <label className="flex flex-col gap-1.5 text-sm font-medium" htmlFor="password">
+      <label className="flex flex-col gap-1.5 text-base font-semibold" htmlFor="password">
         Password
         <input
           id="password"
@@ -18,15 +18,15 @@ export function LoginForm({ next }: { next: string }) {
           autoFocus
           autoComplete="current-password"
           aria-describedby={state.error ? "login-error" : undefined}
-          className="h-11 rounded-lg border border-line bg-surface px-3 text-base font-normal"
+          className="min-h-12 rounded-lg border border-line bg-surface px-3 text-base font-normal"
         />
       </label>
       {state.error && (
-        <p id="login-error" role="alert" className="rounded-lg bg-bad-bg px-3 py-2 text-sm text-bad-ink">
+        <p id="login-error" role="alert" className="rounded-lg bg-bad-bg px-3 py-2 text-base text-bad-ink">
           {state.error}
         </p>
       )}
-      <button type="submit" disabled={pending} className="h-11 rounded-lg bg-accent text-base font-medium text-accent-ink disabled:opacity-60">
+      <button type="submit" disabled={pending} className="min-h-12 rounded-lg bg-accent text-base font-semibold text-accent-ink disabled:opacity-60">
         {pending ? "Signing in…" : "Sign in"}
       </button>
     </form>

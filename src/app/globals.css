@@ -4,16 +4,16 @@
    validated data-viz palette: tiers use its fixed status steps, series its first categorical slots. */
 :root {
   color-scheme: light;
-  --bg: #f7f6f3;
-  --surface: #ffffff;
-  --surface-2: #f0efec;
-  --ink: #1b1a18;
-  --ink-2: #52514e;
-  --ink-3: #7a7974;
-  --line: #e3e1db;
-  --accent: #184f95;
+  --bg: #f6f1e9;
+  --surface: #fbf8f3;
+  --surface-2: #ede6da;
+  --ink: #1f1b16;
+  --ink-2: #4a4339;
+  --ink-3: #6b6358; /* the lightest allowed for meta text (AA on bg and surface) */
+  --line: #ddd3c3;
+  --accent: #9a4a2b; /* terracotta: the only action colour, never a status */
   --accent-ink: #ffffff;
-  --focus: #2a78d6;
+  --focus: #1f5fa8;
 
   --tier-green: #0ca30c;
   --tier-amber: #fab219;
@@ -28,8 +28,8 @@
   --tier-none-bg: #ecebe7;
   --tier-none-ink: #52514e;
 
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
+  --series-1: #7a4a32; /* clay */
+  --series-2: #5e6b4f; /* sage */
   --warn-bg: #fff4d6;
   --warn-ink: #6b4700;
   --bad-bg: #fde6e6;
@@ -41,16 +41,16 @@
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --bg: #121211;
-    --surface: #1a1a19;
-    --surface-2: #262624;
-    --ink: #f2f1ee;
-    --ink-2: #c3c2b7;
-    --ink-3: #9a998f;
-    --line: #34332f;
-    --accent: #6da7ec;
-    --accent-ink: #0b0b0b;
-    --focus: #6da7ec;
+    --bg: #171411;
+    --surface: #201c18;
+    --surface-2: #2a2520;
+    --ink: #f1ebe1;
+    --ink-2: #cfc6b8;
+    --ink-3: #a89f90;
+    --line: #3a332b;
+    --accent: #e0906a;
+    --accent-ink: #1a0f09;
+    --focus: #8db8ee;
 
     --tier-none: #7f7e77;
     --tier-green-bg: #123a12;
@@ -62,8 +62,8 @@
     --tier-none-bg: #2e2e2b;
     --tier-none-ink: #c3c2b7;
 
-    --series-1: #3987e5;
-    --series-2: #d95926;
+    --series-1: #c68a6a;
+    --series-2: #93a481;
     --warn-bg: #3f2f00;
     --warn-ink: #ffd773;
     --bad-bg: #431616;
@@ -89,14 +89,26 @@
   --color-bad-ink: var(--bad-ink);
   --color-ok-bg: var(--ok-bg);
   --color-ok-ink: var(--ok-ink);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --text-meta: 13px;
+  --text-row: 18px;
+  --text-section: 22px;
+  --text-page: 40px;
+  --text-hero: 56px;
+  --text-display: 72px;
+  --radius-control: 8px;
+  --radius-panel: 16px;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Faint paper grain (4%), on the body only. Flat: no shadows, blur or glass anywhere. */
 body {
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .33 0 0 0 0 .25 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");
   color: var(--ink);
   font-family: var(--font-sans);
+  font-size: 16px;
 }
 
 :focus-visible {
@@ -108,3 +120,19 @@ body {
 .num {
   font-variant-numeric: tabular-nums;
 }
+
+/* Only quick, small transitions; none when the visitor asks for less motion. */
+a, button, summary {
+  transition: background-color 150ms, border-color 150ms, color 150ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The Filter sheet is a <details>: no marker, and it closes itself with the page reload on Apply. */
+summary::-webkit-details-marker { display: none; }
+summary { list-style: none; }

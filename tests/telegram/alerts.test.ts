@@ -45,7 +45,7 @@ describe("who gets which alert", () => {
     const [a] = plan(call({ tier: "amber", tierReasons: ["parents decide"] }));
     expect(a).toMatchObject({ kind: "lead_amber", chat: "designers" });
     expect(a.text).toContain("AMBER lead");
-    expect(a.text).toContain("why Amber: parents decide");
+    expect(a.text.split("\n")[1]).toContain("Why Amber: parents decide"); // tier and reason are in the first two lines
   });
   it("Red → nobody", () => {
     expect(plan(call({ tier: "red", status: "unqualified_verified" }))).toEqual([]);

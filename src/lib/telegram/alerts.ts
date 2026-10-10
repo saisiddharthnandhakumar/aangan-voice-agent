@@ -1,5 +1,5 @@
 import { summaryOrExcerpt, callFacts, projectLine } from "@/lib/pipeline/facts";
-import { formatIst, statusLabel, tierLabel } from "@/lib/rules";
+import { formatIst } from "@/lib/rules";
 import type { BookingRow, CallRow } from "@/lib/tools/repo";
 import { escapeHtml, type InlineButton } from "./client";
 
@@ -68,7 +68,6 @@ function notes(call: CallRow): string | null {
   if (call.flags.includes("wants_human")) n.push("the caller asked for a person");
   if (call.flags.includes("structural_changes")) n.push("structural changes mentioned");
   if (call.flags.includes("frustrated_repeat")) n.push("frustrated repeat caller");
-  if (call.tierReasons?.length && call.tier === "amber") n.push(`why Amber: ${call.tierReasons[0]}`);
   return n.length ? n.join("; ") : null;
 }
 
@@ -82,9 +81,9 @@ function header(kind: AlertKind, call: CallRow): string {
   const high = call.priority === "high" ? " · ⚠ High priority" : "";
   switch (kind) {
     case "lead_green":
-      return `🟢 <b>GREEN lead</b>${high}`;
+      return `🟢 <b>GREEN lead</b> · ready for a designer${high}`;
     case "lead_amber":
-      return `🟠 <b>AMBER lead</b> · needs a look${high}`;
+      return `🟠 <b>AMBER lead</b> · needs a look first${high}`;
     case "existing_client":
       return `🔵 <b>Existing client: callback request</b>${high}`;
     case "unclassified":
@@ -98,6 +97,16 @@ function header(kind: AlertKind, call: CallRow): string {
   }
 }
 
+/** Line 2 of a lead alert: what the tier means for the designer, plus when the design call is. */
+function verdict(kind: AlertKind, call: CallRow, ctx: AlertContext): string | null {
+  if (kind === "lead_green") return `Meets all the criteria. <b>Design call:</b> ${e(consultLine(ctx))}`;
+  if (kind === "lead_amber") {
+    const why = call.tierReasons?.[0] ? `Why Amber: ${call.tierReasons[0]}. ` : "";
+    return `${e(why)}<b>Design call:</b> ${e(consultLine(ctx))}`;
+  }
+  return null;
+}
+
 function who(call: CallRow): string {
   const f = callFacts(call);
   const name = f.callerName ?? "Unknown caller";
@@ -106,7 +115,7 @@ function who(call: CallRow): string {
 
 export function buildAlertText(kind: AlertKind, call: CallRow, ctx: AlertContext): string {
   const f = callFacts(call);
-  const common = [header(kind, call), who(call)];
+  const common = [header(kind, call), verdict(kind, call, ctx), who(call)].filter((x): x is string => x !== null);
   let body: Array<string | null>;
   switch (kind) {
     case "dropped":
@@ -133,12 +142,9 @@ export function buildAlertText(kind: AlertKind, call: CallRow, ctx: AlertContext
       break;
     default:
       body = [
-        line("Tier", tierLabel(call.tier) ?? "Not rated"),
-        line("Status", statusLabel(call.status, call.reviewState)),
         line("Project", projectLine(f)),
         line("Locality", f.locality),
         line("Timeline", timelineLine(call)),
-        line("Design call", consultLine(ctx)),
         line("Lead source", f.referralSource),
         notes(call) ? `<b>Note:</b> ${e(notes(call) as string)}` : null,
         summaryBlock(call),

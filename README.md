@@ -61,7 +61,8 @@ Next.js 16 (App Router, TypeScript strict) · Tailwind 4 · Drizzle ORM + Neon s
 pnpm install
 cp .env.example .env.local   # fill in values; DATABASE_URL is the only one required to start
 pnpm db:migrate              # applies drizzle/ migrations to the database in .env.local
-pnpm db:seed                 # inserts six invented calls flagged is_test (safe to repeat)
+pnpm db:seed                 # loads ~45 fictional demo- calls (not is_test; idempotent)
+pnpm demo:purge              # removes every demo- call
 pnpm dev                     # http://localhost:3000
 ```
 
@@ -75,7 +76,7 @@ Every variable, where to get it and where it goes is in `docs/SETUP_CHECKLIST.md
 | `pnpm lint` | ESLint |
 | `pnpm leak:scan` | Fails if a staged file holds a pricing figure or a database password marker (run `git add -A` first) |
 | `pnpm db:generate` / `pnpm db:migrate` | New migration from `src/db/schema.ts` / apply it (`ENV_FILE=.env.main-branch.local pnpm db:migrate` for production) |
-| `pnpm db:seed [--reset]` | Six invented test calls |
+| `pnpm db:seed` / `pnpm demo:purge` | Load / remove ~45 fictional demo calls (`demo-` IDs) |
 | `pnpm rubric:build` / `rubric:check` | Build `rubric.txt` from `docs/source/` and the examples |
 | `pnpm rubric:env` | Write `rubric.txt` base64-encoded into `RUBRIC_TXT_B64` (copy it to Vercel) |
 | `pnpm pricing:config` | Write `PRICING_CONFIG_JSON` from the local pricing guide |

@@ -34,6 +34,8 @@ export interface FounderMetrics {
     repeatCallers: number;
     afterHours: number;
     afterHoursShare: number | null;
+    /** After-hours calls that ended with an accepted design call booked. */
+    afterHoursBooked: number;
   };
   tiers: { green: number; amber: number; red: number; none: number };
   bookings: { booked: number; rateOfBookable: number | null; rateOfGreen: number | null };
@@ -54,7 +56,7 @@ export interface FounderMetrics {
   cost: { totalInr: number; vaaniInr: number; geminiInr: number; perCallInr: number | null; perBookedConsultInr: number | null; callsWithCost: number };
   pipeline: { estimatedValueInr: number; qualifiedLeads: number; totalCostInr: number; valuePerRupeeOfCost: number | null };
   series: {
-    callsPerDay: Array<{ date: string; green: number; amber: number; red: number; none: number; total: number }>;
+    callsPerDay: Array<{ date: string; green: number; amber: number; red: number; none: number; total: number; working: number; afterHours: number }>;
     costPerDay: Array<{ date: string; vaaniInr: number; geminiInr: number; totalInr: number }>;
   };
 }
@@ -90,6 +92,7 @@ export async function founderMetrics(db: AnyDb, range: Range, now: Date, o: { st
       droppedAlerted: sql<number>`(count(*) filter (where ${calls.endReason} = 'dropped' and ${calls.telegramSentAt} is not null))::int`,
       repeat: sql<number>`(count(*) filter (where ${calls.repeatOfCallId} is not null))::int`,
       afterHours: sql<number>`(count(*) filter (where ${calls.calledAfterHours} = true))::int`,
+      afterHoursBooked: sql<number>`(count(*) filter (where ${calls.calledAfterHours} = true and ${hasBooking}))::int`,
       green: sql<number>`(count(*) filter (where ${calls.tier} = 'green'))::int`,
       amber: sql<number>`(count(*) filter (where ${calls.tier} = 'amber'))::int`,
       red: sql<number>`(count(*) filter (where ${calls.tier} = 'red'))::int`,
@@ -169,6 +172,7 @@ export async function founderMetrics(db: AnyDb, range: Range, now: Date, o: { st
       red: sql<number>`(count(*) filter (where ${calls.tier} = 'red'))::int`,
       none: sql<number>`(count(*) filter (where ${calls.tier} is null))::int`,
       total: sql<number>`count(*)::int`,
+      afterHours: sql<number>`(count(*) filter (where ${calls.calledAfterHours} = true))::int`,
       vaani: sql<number>`coalesce(sum(${calls.vaaniCostInr}), 0)::float8`,
       gemini: sql<number>`coalesce(sum(${calls.geminiCostInr}), 0)::float8`,
       cost: sql<number>`coalesce(sum(${calls.totalCostInr}), 0)::float8`,
@@ -213,6 +217,7 @@ export async function founderMetrics(db: AnyDb, range: Range, now: Date, o: { st
       repeatCallers: r.repeat,
       afterHours: r.afterHours,
       afterHoursShare: round(ratio(r.afterHours, r.received), 4),
+      afterHoursBooked: r.afterHoursBooked,
     },
     tiers: { green: r.green, amber: r.amber, red: r.red, none: r.none },
     bookings: { booked: r.booked, rateOfBookable: round(ratio(r.bookedGreen + r.bookedAmber, bookable), 4), rateOfGreen: round(ratio(r.bookedGreen, r.green), 4) },
@@ -253,7 +258,7 @@ export async function founderMetrics(db: AnyDb, range: Range, now: Date, o: { st
     series: {
       callsPerDay: days.map((d) => {
         const p = byDay.get(d);
-        return { date: d, green: num(p?.green), amber: num(p?.amber), red: num(p?.red), none: num(p?.none), total: num(p?.total) };
+        return { date: d, green: num(p?.green), amber: num(p?.amber), red: num(p?.red), none: num(p?.none), total: num(p?.total), working: num(p?.total) - num(p?.afterHours), afterHours: num(p?.afterHours) };
       }),
       costPerDay: days.map((d) => {
         const p = byDay.get(d);

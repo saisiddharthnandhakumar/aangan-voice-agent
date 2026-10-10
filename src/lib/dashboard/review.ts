@@ -4,6 +4,7 @@ import { errorSummary } from "@/lib/http/retry";
 import { syncReviewDecision, type HubspotCtx } from "@/lib/hubspot/sync";
 import type { PipelineRepo } from "@/lib/pipeline/repo";
 import type { Role } from "@/lib/auth/session";
+import { isDemoCallId } from "./demo";
 import type { AnyDb } from "./types";
 
 /**
@@ -59,6 +60,8 @@ export async function syncToHubspot(deps: ReviewDeps, callId: string): Promise<R
   const call = await deps.repo.getCall(callId);
   if (!call) return { ok: false, error: "Call not found." };
   if (call.isTest) return { ok: true, hubspot: "skipped" };
+  // Demo rows are not flagged is_test (the dashboards must show them), so they are kept out of HubSpot here.
+  if (isDemoCallId(call.vaaniCallId)) return { ok: true, hubspot: "skipped" };
   if (!deps.hubspot) return { ok: true, hubspot: "skipped" };
   const prior = await deps.db.select().from(pipelineSteps).where(eq(pipelineSteps.callId, callId));
   const attempts = (prior.find((s) => s.step === HUBSPOT_REVIEW_STEP)?.attempts ?? 0) + 1;
