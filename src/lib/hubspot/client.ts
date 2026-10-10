@@ -45,7 +45,7 @@ export class HubspotError extends Error {
 type Props = Record<string, string | number | boolean | null>;
 
 interface Req {
-  method: "GET" | "POST" | "PATCH" | "PUT";
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   path: string;
   body?: unknown;
   /** POST creates: do not retry a timeout or 5xx. */
@@ -155,7 +155,16 @@ export interface HubspotApi {
   listDealPipelines(): Promise<HubspotPipeline[]>;
 }
 
-export function hubspotApi(cfg: HubspotConfig): HubspotApi {
+/**
+ * Archive (HubSpot's "delete", recoverable for a while) a record. Used only by the demo purge.
+ * UNVERIFIED: written from the documented v3 `DELETE /crm/v3/objects/{objectType}/{id}` (204 on success);
+ * nothing has been run against a live account. A 404 is treated as already archived so a re-run is safe.
+ */
+export interface HubspotArchive {
+  archive(type: "contacts" | "calls" | "deals", id: string): Promise<void>;
+}
+
+export function hubspotApi(cfg: HubspotConfig): HubspotApi & HubspotArchive {
   const o = API_VERSION_PATH;
   return {
     async findContactByPhone(national10, e164) {
@@ -207,6 +216,13 @@ export function hubspotApi(cfg: HubspotConfig): HubspotApi {
         method: "PUT",
         path: `${ASSOC_V4}/objects/${fromType}/${encodeURIComponent(fromId)}/associations/default/${toType}/${encodeURIComponent(toId)}`,
       });
+    },
+    async archive(type, id) {
+      try {
+        await request(cfg, { method: "DELETE", path: `${o}/objects/${type}/${encodeURIComponent(id)}` });
+      } catch (err) {
+        if (!(err instanceof HubspotError && err.status === 404)) throw err;
+      }
     },
     async listContactProperties() {
       const r = (await request(cfg, { method: "GET", path: `${o}/properties/contacts` })) as { results?: Array<{ name: string }> };

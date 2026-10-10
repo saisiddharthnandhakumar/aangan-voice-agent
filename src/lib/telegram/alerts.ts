@@ -179,7 +179,7 @@ export function planAlerts(call: CallRow, ctx: AlertContext): PlannedAlert[] {
   return out;
 }
 
-/** Daily digest (P9): Red leads from the last day and every unreviewed Amber lead. */
+/** Daily digest (P9): Red leads from the last day and every Amber lead still without a design call. */
 export interface DigestItem {
   id: string;
   tier: "red" | "amber";
@@ -198,7 +198,7 @@ export function buildDigest(items: readonly DigestItem[], appBaseUrl: string | u
   };
   const lines = [
     `📋 <b>Morning digest</b> · ${e(formatIst(now).replace(/, .*$/, ""))}`,
-    amber.length ? `\n🟠 <b>Amber, not yet reviewed (${amber.length})</b>\n${amber.slice(0, 15).map(row).join("\n")}${amber.length > 15 ? `\n…and ${amber.length - 15} more` : ""}` : "\n🟠 No unreviewed Amber leads.",
+    amber.length ? `\n🟠 <b>Amber, no design call yet (${amber.length})</b>\n${amber.slice(0, 15).map(row).join("\n")}${amber.length > 15 ? `\n…and ${amber.length - 15} more` : ""}` : "\n🟠 No Amber leads waiting for a design call.",
     red.length ? `\n🔴 <b>Red in the last day (${red.length})</b>\n${red.slice(0, 15).map(row).join("\n")}${red.length > 15 ? `\n…and ${red.length - 15} more` : ""}\nRed leads are never deleted: Rescue any that deserve another look.` : "\n🔴 No Red leads in the last day.",
   ];
   const button = appBaseUrl && /^https:\/\//.test(appBaseUrl) ? { text: "Open dashboard", url: `${appBaseUrl.replace(/\/$/, "")}/dashboard` } : undefined;

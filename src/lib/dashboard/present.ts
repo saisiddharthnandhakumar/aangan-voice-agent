@@ -4,22 +4,24 @@ import type { CallListItem } from "./types";
 
 /** Plain-language wording for the Designers' view. Pure, so it is tested without a browser. */
 
-type NextActionInput = Pick<CallListItem, "tier" | "status" | "reviewState" | "consultAt">;
+type NextActionInput = Pick<CallListItem, "tier" | "status" | "reviewState" | "consultAt"> & { calledBack?: boolean };
+
+/** The dashboards say "Cancelled"; HubSpot's property option keeps its stored label ("Discarded"). */
+export const reviewStateLabel = (status: string, reviewState: string): string =>
+  reviewState === "discarded" ? "Cancelled" : statusLabel(status as Parameters<typeof statusLabel>[0], reviewState as Parameters<typeof statusLabel>[1]);
 
 /** What the designer should do with this lead, in one short sentence. */
 export function nextAction(c: NextActionInput): string {
-  if (c.reviewState === "discarded") return "Discarded. Nothing to do.";
+  if (c.reviewState === "discarded") return "Cancelled. Nothing to do.";
   if (c.reviewState === "rescued") return c.consultAt ? "Rescued. Design call booked." : "Rescued. Call them to book.";
-  if (c.status === "dropped") return "Call back. They hung up early.";
-  if (c.status === "escalated") return "Existing client. Call back today.";
+  if (c.status === "dropped") return c.calledBack ? "Called back. Nothing more to do." : "Call back. They hung up early.";
+  if (c.status === "escalated") return c.calledBack ? "Called back. Nothing more to do." : "Existing client. Call back today.";
   if (c.status === "non_enquiry") return "Not an enquiry. Nothing to do.";
   if (c.tier === "red" && c.reviewState === "none") return "Declined kindly. Nothing to do.";
-  if (c.tier === "amber" && c.reviewState === "none") return c.consultAt ? "Review the lead. Design call is booked." : "Review, then book a call";
-  if (c.status === "booked" || (c.consultAt && c.tier === "green")) return "Design call booked. Read the brief.";
+  if (c.status === "booked" || c.consultAt) return "Design call booked. Read the brief.";
   if (c.tier === null && c.status === "awaiting_designer") return "Not rated. Read the call and decide.";
-  if (c.tier === "green" && !c.consultAt) return "No design call yet. Call them to book one.";
-  if (c.reviewState === "approved") return c.consultAt ? "Approved. Design call booked." : "Approved. Call them to book.";
-  return statusLabel(c.status as Parameters<typeof statusLabel>[0], c.reviewState as Parameters<typeof statusLabel>[1]);
+  if (c.tier === "amber" || c.tier === "green") return "No design call yet. Call them to book one.";
+  return reviewStateLabel(c.status, c.reviewState);
 }
 
 /** "4:30 pm", "11 am": no minutes on the hour. */

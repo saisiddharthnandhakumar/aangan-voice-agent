@@ -99,7 +99,7 @@ export function memoryPipeline() {
     async digestItems(now) {
       const dayAgo = now.getTime() - 24 * 3_600_000;
       return tools.calls
-        .filter((c) => !c.isTest && c.reviewState === "none" && ((c.tier === "amber" && ["booked", "awaiting_designer"].includes(c.status)) || (c.tier === "red" && c.createdAt.getTime() >= dayAgo)))
+        .filter((c) => !c.isTest && c.reviewState === "none" && ((c.tier === "amber" && c.status === "awaiting_designer") || (c.tier === "red" && c.createdAt.getTime() >= dayAgo)))
         .map((c) => ({ id: c.id, tier: c.tier as "red" | "amber", name: c.callerName, locality: null, createdAt: c.createdAt }));
     },
     async purgeTranscripts(before) {

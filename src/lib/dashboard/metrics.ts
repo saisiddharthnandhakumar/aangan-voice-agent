@@ -20,7 +20,7 @@ export interface FounderMetrics {
   generatedAt: string;
   now: {
     liveCalls: number;
-    activeLeads: { amberAwaitingReview: number; greenWithConsultAhead: number; total: number };
+    activeLeads: { amberActive: number; greenWithConsultAhead: number; total: number };
     waitingTooLong: { count: number; oldestHours: number | null; thresholdHours: number };
   };
   calls: {
@@ -190,10 +190,10 @@ export async function founderMetrics(db: AnyDb, range: Range, now: Date, o: { st
     .where(and(real, eq(calls.status, "in_call"), sql`${calls.createdAt} >= ${tsParam(new Date(now.getTime() - 30 * 60_000))}`));
   const [lead] = await db
     .select({
-      amber: sql<number>`(count(*) filter (where ${calls.tier} = 'amber' and ${calls.reviewState} = 'none'))::int`,
+      amber: sql<number>`(count(*) filter (where ${calls.tier} = 'amber' and ${calls.reviewState} <> 'discarded'))::int`,
       greenAhead: sql<number>`(count(*) filter (where ${calls.tier} = 'green' and exists (select 1 from bookings b where b.call_id = ${callIdRef} and b.status = 'accepted' and b.start_at > ${nowTs})))::int`,
-      stale: sql<number>`(count(*) filter (where ${calls.tier} = 'amber' and ${calls.reviewState} = 'none' and ${calls.createdAt} < ${staleTs}))::int`,
-      oldestSec: sql<number | null>`(max(extract(epoch from (${nowTs} - ${calls.createdAt}))) filter (where ${calls.tier} = 'amber' and ${calls.reviewState} = 'none' and ${calls.createdAt} < ${staleTs}))::float8`,
+      stale: sql<number>`(count(*) filter (where ${calls.tier} = 'amber' and ${calls.status} = 'awaiting_designer' and ${calls.reviewState} = 'none' and ${calls.createdAt} < ${staleTs}))::int`,
+      oldestSec: sql<number | null>`(max(extract(epoch from (${nowTs} - ${calls.createdAt}))) filter (where ${calls.tier} = 'amber' and ${calls.status} = 'awaiting_designer' and ${calls.reviewState} = 'none' and ${calls.createdAt} < ${staleTs}))::float8`,
     })
     .from(calls)
     .where(real);
@@ -204,7 +204,7 @@ export async function founderMetrics(db: AnyDb, range: Range, now: Date, o: { st
     generatedAt: nowIso,
     now: {
       liveCalls: live.n,
-      activeLeads: { amberAwaitingReview: lead.amber, greenWithConsultAhead: lead.greenAhead, total: lead.amber + lead.greenAhead },
+      activeLeads: { amberActive: lead.amber, greenWithConsultAhead: lead.greenAhead, total: lead.amber + lead.greenAhead },
       waitingTooLong: { count: lead.stale, oldestHours: round(nul(lead.oldestSec) == null ? null : (nul(lead.oldestSec) as number) / 3600, 1), thresholdHours: o.staleHours },
     },
     calls: {

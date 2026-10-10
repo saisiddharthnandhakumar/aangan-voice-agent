@@ -110,3 +110,12 @@ describe("HubSpot client", () => {
     expect(t.calls[0]).toMatchObject({ method: "PUT", path: "/crm/v4/objects/deals/5/associations/default/contacts/9" });
   });
 });
+
+describe("HubSpot client archive (UNVERIFIED against a live account)", () => {
+  it("DELETEs the v3 object and treats a 404 as already archived", async () => {
+    const t = scripted([() => new Response(null, { status: 204 }), json({ message: "not found" }, 404)]);
+    await t.api.archive("deals", "42");
+    await t.api.archive("contacts", "43");
+    expect(t.calls.map((c) => `${c.method} ${c.path}`)).toEqual(["DELETE /crm/v3/objects/deals/42", "DELETE /crm/v3/objects/contacts/43"]);
+  });
+});

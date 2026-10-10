@@ -52,6 +52,11 @@ export interface CallListItem {
   locality: string | null;
   projectType: string | null;
   summary: string | null;
+  /** What the row shows: the summary, else an excerpt of the caller's words (redacted). */
+  brief: string | null;
+  briefIsExcerpt: boolean;
+  /** A designer logged a call-back on this lead. */
+  calledBack: boolean;
   consultAt: Date | null;
   durationSeconds: number | null;
 }

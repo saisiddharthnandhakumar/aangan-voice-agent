@@ -37,9 +37,9 @@ beforeAll(async () => {
 const base = { from: "2026-10-01", to: "2026-10-31" };
 
 describe("designer tabs (PRD D2)", () => {
-  it("Needs review: awaiting a designer or an unreviewed Amber, never reviewed, dropped, Red or test", async () => {
+  it("Needs review: awaiting a designer, or a dropped or escalated call; a booked Amber lead is active, never Red, cancelled or test", async () => {
     const r = await listCalls(db, { tab: "needs_review", ...base });
-    expect(names(r.items).sort()).toEqual(["amber-booked", "amber-waiting", "unrated"]);
+    expect(names(r.items).sort()).toEqual(["amber-waiting", "complaint", "dropped", "unrated"]);
   });
   it("Booked, Unqualified but verified, Escalations, Dropped, Non-enquiries", async () => {
     expect(names((await listCalls(db, { tab: "booked", ...base })).items).sort()).toEqual(["amber-booked", "green-booked", "redial"]);
@@ -59,7 +59,7 @@ describe("designer tabs (PRD D2)", () => {
   });
   it("tab badges count under the same filters", async () => {
     const c = await tabCounts(db, base);
-    expect(c).toEqual({ needs_review: 3, booked: 3, unqualified: 1, escalations: 1, dropped: 1, non_enquiries: 1, all: 10 });
+    expect(c).toEqual({ needs_review: 4, booked: 3, unqualified: 1, escalations: 1, dropped: 1, non_enquiries: 1, all: 10 });
   });
 });
 
@@ -87,7 +87,8 @@ describe("filters and order", () => {
     const r = await listCalls(db, { tab: "booked", ...base });
     const g = r.items.find((i) => i.callerName === "green-booked")!;
     expect(g).toMatchObject({ locality: "Kothrud", projectType: "home", consultAt: new Date("2026-10-15T05:00:00Z") });
-    expect(g.summary).toHaveLength(220);
+    expect(g.summary).toHaveLength(400);
+    expect(g.brief).toHaveLength(220);
     expect(Object.keys(g).join(" ")).not.toMatch(/budget|floor/i);
   });
 });

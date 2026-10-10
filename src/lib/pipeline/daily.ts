@@ -5,7 +5,7 @@ import type { PipelineDeps } from "./types";
 /**
  * The daily job (Vercel cron, 09:00 IST; once a day on Hobby): settle bookings whose Cal.com create
  * timed out, clear transcripts and recordings past the retention period, then send the digest of Red and
- * unreviewed Amber leads (PRD P9). Cron may fire twice or
+ * Amber leads without a design call (PRD P9). Cron may fire twice or
  * late (±59 min on Hobby), so every part is safe to repeat: reconcile only touches pending bookings,
  * and a duplicate digest is harmless.
  */

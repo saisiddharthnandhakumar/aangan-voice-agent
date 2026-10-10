@@ -99,7 +99,7 @@ export const envSchema = z
     APP_BASE_URL: z.string().trim().url().optional(),
     /**
      * Dashboard login. User decision 2026-10-10: "off" (the default) means NO login: anyone with the web address
-     * can open every dashboard page, the CSV, and the Approve/Rescue/Discard actions, and sees callers' names,
+     * can open every dashboard page, the CSV, and the Rescue/Cancel/Note actions, and sees callers' names,
      * phone numbers and transcripts. Set DASHBOARD_LOGIN=on to require the two passwords again.
      */
     DASHBOARD_LOGIN: z.enum(["on", "off"]).default("off"),

@@ -1,6 +1,10 @@
 import type { InferInsertModel } from "drizzle-orm";
 import type { bookings, calls, pipelineSteps, reviewActions } from "@/db/schema";
 import { DEMO_PREFIX } from "@/lib/dashboard/demo";
+import { contentA } from "@/lib/demo/content-a";
+import { contentB } from "@/lib/demo/content-b";
+import { contentC } from "@/lib/demo/content-c";
+import type { ScenarioContentMap } from "@/lib/demo/content-types";
 import { isWithinBusinessHours, istParts } from "@/lib/rules/time";
 
 type CallInsert = InferInsertModel<typeof calls>;
@@ -47,7 +51,13 @@ interface Spec {
   timeline?: string;
   unrated?: boolean;
   handoffSeconds?: number;
+  flags?: string[];
+  /** The caller was asked whether the date could move (rubric R3 gate). */
+  moveAsked?: boolean;
 }
+
+/** Hand-written transcripts, summaries, hand-off notes and criteria, keyed by 1-based SPECS position. */
+const CONTENT: ScenarioContentMap = { ...contentA, ...contentB, ...contentC };
 
 /**
  * ~45 clearly fictional calls for the dashboards. Rows are NOT flagged is_test (so the dashboards show them and
@@ -61,16 +71,16 @@ const SPECS: Spec[] = [
   { name: "Tara Velankar", tier: "green", status: "booked", when: { daysAgo: 2, at: "14:10" }, minutes: 6.2, place: "Baner", project: "home", detail: "3BHK apartment", bhk: 3, sqft: 1450, source: "friend", book: { dayOffset: 0, at: "11:30" }, high: true, value: 1_873_000, timeline: "Possession in January, wants to start in November" },
   { name: "Rohan Pendse", tier: "green", status: "booked", when: { daysAgo: 1, at: "11:05" }, minutes: 5.4, place: "Wakad", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 980, source: "instagram", book: { dayOffset: 0, at: "16:30" }, value: 1_246_000, timeline: "Moving in within three months" },
   { name: "Nisha Gadgil", tier: "green", status: "booked", when: { daysAgo: 3, at: "21:15" }, minutes: 7.1, place: "Hinjewadi", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 1020, source: "google", book: { dayOffset: 0, at: "17:30" }, value: 1_318_000, timeline: "Handover next month" },
-  { name: "Kabir Athalye", tier: "green", status: "booked", when: { daysAgo: 1, at: "17:30" }, minutes: 8.3, place: "Kothrud", project: "home", detail: "Independent villa", sqft: 2600, source: "friend", book: { dayOffset: 1, at: "11:00" }, high: true, value: 2_284_000, timeline: "Renovating before a family event in December" },
+  { name: "Kabir Athalye", tier: "green", status: "booked", when: { daysAgo: 1, at: "17:30" }, minutes: 8.3, place: "Kothrud", project: "home", detail: "Independent villa", sqft: 2600, source: "friend", book: { dayOffset: 1, at: "11:00" }, high: true, value: 2_284_000, timeline: "Ready before the January function" },
   { name: "Mrinal Sathe", tier: "green", status: "booked", when: { hoursAgo: 5 }, minutes: 4.9, place: "Aundh", project: "home", detail: "3BHK apartment", bhk: 3, sqft: 1380, source: "google", book: { dayOffset: 1, at: "15:30" }, value: 1_652_000, timeline: "Wants to begin within six weeks" },
   { name: "Isha Bhoite", tier: "green", status: "booked", when: { daysAgo: 2, at: "09:50" }, minutes: 5.8, place: "Hinjewadi", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 1050, source: "builder referral", book: { dayOffset: 2, at: "10:30" }, value: 1_187_000, timeline: "Possession in two months" },
   { name: "Vikram Joglekar", tier: "green", status: "booked", when: { daysAgo: 2, at: "12:40" }, minutes: 6.6, place: "Kharadi", project: "office", detail: "Small office fit-out", sqft: 1700, source: "linkedin", book: { dayOffset: 3, at: "12:00" }, value: 1_491_000, timeline: "Lease starts in six weeks" },
   { name: "Devika Ranade", tier: "green", status: "booked", when: { daysAgo: 2, at: "22:05" }, minutes: 7.7, place: "Viman Nagar", project: "home", detail: "4BHK apartment", bhk: 4, sqft: 2150, source: "friend", book: { dayOffset: 4, at: "16:00" }, value: 2_047_000, timeline: "Early next year" },
   { name: "Sameer Kanitkar", tier: "green", status: "booked", when: { daysAgo: 5, at: "11:20" }, minutes: 5.2, place: "Baner", project: "home", detail: "3BHK apartment", bhk: 3, sqft: 1500, source: "instagram", book: { dayOffset: -1, at: "11:00" }, value: 1_735_000, timeline: "Within three months" },
-  { name: "Ananya Phadke", tier: "green", status: "booked", when: { daysAgo: 7, at: "15:45" }, minutes: 6.0, place: "Aundh", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 1010, source: "google", book: { dayOffset: -2, at: "15:00" }, value: 1_209_000, timeline: "Moving in next month" },
+  { name: "Ananya Phadke", tier: "green", status: "booked", when: { daysAgo: 7, at: "15:45" }, minutes: 6.0, place: "Aundh", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 1010, source: "google", book: { dayOffset: -2, at: "15:00" }, value: 1_209_000, timeline: "Move in by the end of January" },
   { name: "Harsh Bapat", tier: "green", status: "booked", when: { daysAgo: 8, at: "19:40" }, minutes: 9.4, place: "Balewadi", project: "home", detail: "3BHK apartment", bhk: 3, sqft: 1560, source: "friend", book: { dayOffset: -4, at: "12:30" }, value: 1_904_000, timeline: "Handover in six weeks" },
   { name: "Pooja Deodhar", tier: "green", status: "booked", when: { daysAgo: 11, at: "10:25" }, minutes: 5.5, place: "Pimple Saudagar", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 960, source: "instagram", book: { dayOffset: -6, at: "10:00" }, value: 1_153_000, timeline: "Within two months" },
-  { name: "Aditya Sabnis", tier: "green", status: "booked", when: { daysAgo: 15, at: "16:10" }, minutes: 6.8, place: "Koregaon Park", project: "home", detail: "3BHK apartment", bhk: 3, sqft: 1620, source: "google", book: { dayOffset: -9, at: "17:00" }, value: 1_968_000, timeline: "Before the festive season" },
+  { name: "Aditya Sabnis", tier: "green", status: "booked", when: { daysAgo: 15, at: "16:10" }, minutes: 6.8, place: "Koregaon Park", project: "home", detail: "3BHK apartment", bhk: 3, sqft: 1620, source: "google", book: { dayOffset: -9, at: "17:00" }, value: 1_968_000, timeline: "Before my sister's wedding, second week of February" },
   { name: "Lata Gokhale", tier: "green", status: "booked", when: { daysAgo: 18, at: "13:35" }, minutes: 4.6, place: "Sinhagad Road", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 930, source: "builder referral", book: { dayOffset: -12, at: "11:30" }, value: 1_112_000, timeline: "Moving in within a quarter" },
   { name: "Omkar Tilak", tier: "green", status: "booked", when: { daysAgo: 6, at: "14:15" }, minutes: 7.4, place: "Wakad", project: "home", detail: "3BHK apartment", bhk: 3, sqft: 1410, source: "friend", book: { dayOffset: -3, at: "14:00" }, value: 1_689_000, leak: true, timeline: "Wants to start soon" },
   // Green, but no design call booked yet: needs a designer now
@@ -78,7 +88,7 @@ const SPECS: Spec[] = [
   { name: "Neel Chitale", tier: "green", status: "awaiting_designer", when: { hoursAgo: 26 }, minutes: 5.0, place: "Aundh", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 1000, source: "google", value: 1_267_000, timeline: "Within two months", reasons: ["all five criteria pass", "the caller wanted to choose a time later"] },
   // Amber
   { name: "Mitali Wagh", tier: "amber", status: "awaiting_designer", when: { hoursAgo: 0.4 }, minutes: 5.6, place: "Balewadi", project: "home", detail: "3BHK apartment", bhk: 3, sqft: 1330, source: "google", value: 1_521_000, timeline: "Not decided yet", reasons: ["timeline unclear after one question"] },
-  { name: "Sandeep Limaye", tier: "amber", status: "awaiting_designer", when: { hoursAgo: 6 }, minutes: 6.9, place: "Pimple Saudagar", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 940, source: "friend", value: 1_074_000, tight: true, timeline: "Within the year", reasons: ["budget on the lower side"] },
+  { name: "Sandeep Limaye", tier: "amber", status: "awaiting_designer", when: { hoursAgo: 6 }, minutes: 6.9, place: "Pimple Saudagar", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 940, source: "friend", value: 1_074_000, flags: ["structural_changes"], timeline: "No fixed date, within the year", reasons: ["structural changes wanted, a designer should speak first"] },
   { name: "Rutuja Mhatre", tier: "amber", status: "booked", when: { hoursAgo: 3 }, minutes: 5.7, place: "Bavdhan", project: "home", detail: "3BHK apartment", bhk: 3, sqft: 1290, source: "instagram", book: { dayOffset: 1, at: "17:00" }, value: 1_437_000, timeline: "Maybe by March", reasons: ["timeline unclear"] },
   { name: "Yash Kelkar", tier: "amber", status: "booked", when: { daysAgo: 1, at: "18:20" }, minutes: 6.1, place: "Hadapsar", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 1010, source: "google", book: { dayOffset: 2, at: "11:30" }, value: 1_136_000, timeline: "Possession date not fixed", reasons: ["decision maker is the caller's father"] },
   { name: "Shreya Dandekar", tier: "amber", status: "booked", when: { daysAgo: 9, at: "12:05" }, minutes: 6.5, place: "Kothrud", project: "home", detail: "3BHK apartment", bhk: 3, sqft: 1340, source: "friend", book: { dayOffset: -5, at: "11:00" }, review: "approved", value: 1_566_000, timeline: "Not sure yet", reasons: ["timeline unclear"] },
@@ -92,7 +102,7 @@ const SPECS: Spec[] = [
   { name: "Prasad Naik", tier: "red", status: "unqualified_verified", when: { daysAgo: 9, at: "17:25" }, minutes: 2.9, place: "Mumbai", project: "home", detail: "Flat in Mumbai", source: "google", reasons: ["service area fail"] },
   { name: "Divya Kamat", tier: "red", status: "unqualified_verified", when: { daysAgo: 13, at: "08:40" }, minutes: 3.0, place: "Baner", project: "home", detail: "Plot, building not started", source: "instagram", reasons: ["timeline beyond two years"] },
   { name: "Girish Apte", tier: "red", status: "unqualified_verified", when: { daysAgo: 27, at: "15:00" }, minutes: 2.7, place: "Wakad", project: "other", detail: "Wants a free quote only", source: "google", reasons: ["no real project yet"] },
-  { name: "Ketaki Marathe", tier: "red", status: "unqualified_verified", when: { daysAgo: 10, at: "14:20" }, minutes: 4.9, place: "Bavdhan", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 900, source: "friend", book: { dayOffset: 3, at: "15:00" }, review: "rescued", value: 1_024_000, timeline: "Within a year", reasons: ["budget below the studio's minimum", "rescued by a designer after the call"] },
+  { name: "Ketaki Marathe", tier: "red", status: "unqualified_verified", when: { daysAgo: 10, at: "14:20" }, minutes: 4.9, place: "Bavdhan", project: "home", detail: "2BHK apartment", bhk: 2, sqft: 900, source: "friend", book: { dayOffset: 3, at: "15:00" }, review: "rescued", value: 1_024_000, timeline: "By mid-November, the function date is fixed", moveAsked: true, reasons: ["timeline under six weeks and the date cannot move", "rescued by a designer after the call"] },
   // Not rated (the agent's tools did not reach us): a designer decides
   { name: "Anil Sohoni", tier: null, status: "awaiting_designer", when: { hoursAgo: 0.9 }, minutes: 4.4, place: "Aundh", project: "home", detail: "Apartment", source: "google", unrated: true },
   { name: null, tier: null, status: "awaiting_designer", when: { daysAgo: 2, at: "19:45" }, minutes: 3.8, source: "instagram", unrated: true },
@@ -112,8 +122,6 @@ const SPECS: Spec[] = [
   { name: "Leena Purandare", tier: null, status: "non_enquiry", when: { daysAgo: 4, at: "15:40" }, minutes: 2.3, category: "existing_client", place: "Aundh" },
 ];
 
-const GREEN_REASONS = ["all five criteria pass"];
-const CRITERIA = ["real_project", "service_area", "timeline", "budget", "decision_maker"] as const;
 const HOURS = { start: "10:00", end: "19:00", days: ["mon", "tue", "wed", "thu", "fri", "sat"] } as const;
 
 const startOf = (s: Spec, now: Date): Date => {
@@ -127,83 +135,19 @@ const istAtOffset = (now: Date, dayOffset: number, at: string): Date => {
 };
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
-function transcript(s: Spec, leak: boolean): string | null {
-  if (s.status === "dropped") return `[00:00:02] AGENT: Hello, Aangan Studio, this is Vaani. How can I help?\n\n[00:00:07] USER: Hi, I wanted to ask about${s.place ? ` a home in ${s.place}` : " some work"}, I'll call back.`;
-  const place = s.place ?? "Pune";
-  const lines = [
-    "[00:00:02] AGENT: Hello, Aangan Studio, this is Vaani. How can I help you today?",
-    s.status === "non_enquiry" || s.status === "escalated"
-      ? `[00:00:09] USER: ${s.status === "escalated" ? "I'm already a client and I'm not happy with how the work is going." : "I'm calling about something else, not a new project."}`
-      : `[00:00:09] USER: Hi, I'm looking for an interior designer for ${s.detail ?? "my home"} in ${place}.`,
-    "[00:00:16] AGENT: Thank you. May I have your name, and which part of Pune is the property in?",
-  ];
-  if (s.status !== "non_enquiry" && s.status !== "escalated") {
-    lines.push(`[00:00:30] USER: ${s.name ?? "I'd rather not say"}, it's in ${place}.`);
-    lines.push(`[00:00:41] AGENT: Lovely. When would you like the work to start, and is the site ready for the designers?`);
-    lines.push(`[00:00:55] USER: ${s.timeline ?? "Not sure yet"}.`);
-    if (leak) lines.push("[00:01:20] AGENT: That kind of finish would typically cost a bit more, so it is worth discussing early.");
-    lines.push(
-      s.tier === "red"
-        ? "[00:02:10] AGENT: Thank you for sharing all this. I'm sorry, this one is not a fit for the studio right now, and I wish you the very best."
-        : s.book
-          ? "[00:02:10] AGENT: Thank you. I have booked a design call for you, and a designer will read this brief before it."
-          : "[00:02:10] AGENT: Thank you. A designer will call you shortly to fix a time for the design call.",
-    );
-  } else {
-    lines.push("[00:00:30] AGENT: I'm sorry to hear that. I'll pass this to a senior person at the studio right away.");
-  }
-  return lines.join("\n\n");
-}
-
-function summary(s: Spec): string | null {
-  if (s.status === "dropped") return "The caller hung up before the assessment was complete. Only a first question was asked.";
-  if (s.category === "vendor_or_sales") return "A vendor pitch. Closed politely, nothing needed.";
-  if (s.category === "job_seeker") return "Asked about a job at the studio. Pointed to the careers address.";
-  if (s.category === "wrong_number") return "Wrong number. Ended politely.";
-  if (s.category === "existing_client") return "An existing client asking about a delivery date. Passed to their designer.";
-  if (s.status === "escalated") return "An existing client unhappy with progress on their project. Asked for a senior person to call back today.";
-  if (s.unrated) return "The agent did not record a tier. The caller asked about interior design work; read the transcript and decide.";
-  const what = `${s.detail ?? "A home project"}${s.place ? ` in ${s.place}` : ""}`;
-  if (s.tier === "green") return `${what}. ${s.timeline ?? "Timeline is clear"}. Owner is the decision maker and the site is in the service area. All five criteria pass.`;
-  if (s.tier === "amber") return `${what}. ${s.timeline ?? "Timeline unclear"}. Worth a designer's read before the design call.`;
-  return `${what}. Declined kindly: ${(s.reasons ?? ["not a fit"])[0]}.`;
-}
-
-function criteria(s: Spec): unknown {
-  if (!s.tier) return null;
-  const status = (k: (typeof CRITERIA)[number]): "pass" | "fail" | "unclear" => {
-    if (s.tier === "green") return "pass";
-    if (s.tier === "amber") return k === "timeline" || (s.tight && k === "budget") || (s.reasons?.[0]?.startsWith("decision") && k === "decision_maker") ? "unclear" : "pass";
-    const r = s.reasons?.[0] ?? "";
-    if (k === "service_area") return r.startsWith("service") ? "fail" : "pass";
-    if (k === "real_project") return r.startsWith("no real") || r.startsWith("scope") ? "fail" : "pass";
-    if (k === "timeline") return r.startsWith("timeline") ? "fail" : "pass";
-    if (k === "budget") return r.startsWith("budget") ? "fail" : "pass";
-    return "pass";
-  };
-  const evidence = (k: (typeof CRITERIA)[number]): string | null => {
-    if (k === "budget") return null; // the caller's budget words are never stored in demo data or shown
-    if (k === "real_project") return s.detail ? `Caller said: ${s.detail}.` : null;
-    if (k === "service_area") return s.place ? `Site is in ${s.place}.` : null;
-    if (k === "timeline") return s.timeline ?? null;
-    return "Caller is the owner and decides.";
-  };
-  return { recorded: Object.fromEntries(CRITERIA.map((k) => [k, { status: status(k), evidence: evidence(k) }])) };
-}
-
 export function buildDemoCalls(now: Date = new Date()): DemoCall[] {
   return SPECS.map((s, i): DemoCall => {
     const n = i + 1;
+    const c = CONTENT[n];
+    if (!c) throw new Error(`demo content missing for call ${n}`);
     const id = `${DEMO_PREFIX}${String(n).padStart(3, "0")}`;
     const started = startOf(s, now);
     const answerAfter = s.slowAnswerSeconds ?? (n === 11 ? 340 : n === 24 ? 520 : 2 + (n % 7));
     const durationSeconds = Math.round(s.minutes * 60);
     const ended = new Date(started.getTime() + answerAfter * 1000 + durationSeconds * 1000);
-    const spoke = s.status !== "dropped" || s.minutes >= 1;
-    const hasTranscript = s.status !== "dropped" || s.minutes > 0.5;
-    const rated = s.tier === "green" || s.tier === "amber";
+        const rated = s.tier === "green" || s.tier === "amber";
     const vaani = r2((durationSeconds / 60) * DEMO_VAANI_COST_PER_MIN_INR);
-    const gemini = hasTranscript ? r2(0.18 + ((n * 7) % 60) / 100) : null;
+    const gemini = c.transcript ? r2(0.18 + ((n * 7) % 60) / 100) : null;
     const category = s.category !== undefined ? s.category : s.unrated ? null : "enquiry";
     const afterHours = !isWithinBusinessHours(started, HOURS);
     const phone = `+9199999${String(n).padStart(5, "0")}`;
@@ -224,23 +168,23 @@ export function buildDemoCalls(now: Date = new Date()): DemoCall[] {
       reviewState: s.review ?? "none",
       endReason: s.status === "dropped" ? "dropped" : "completed",
       tier: s.tier,
-      tierReasons: s.tier ? (s.reasons ?? GREEN_REASONS) : null,
+      tierReasons: s.tier && c.tierReason ? [c.tierReason] : null,
       priority: s.tier || s.status === "escalated" ? (s.high ? "high" : "normal") : null,
       estimatedValueInr: rated || s.review === "rescued" ? (s.value ?? null) : null,
       budgetTight: Boolean(s.tight),
       priceLeak: Boolean(s.leak),
-      criteriaAgent: criteria(s),
+      criteriaAgent: c.criteria ? { recorded: c.criteria, ...(s.moveAsked ? { timeline_move_asked: true } : {}) } : null,
       facts: s.place || s.project
-        ? { caller_name: s.name, locality: s.place ?? null, project_type: s.project ?? null, property_detail: s.detail ?? null, bhk: s.bhk ?? null, size_sqft: s.sqft ?? null, timeline_text: s.timeline ?? null, referral_source: s.source ?? null }
+        ? { caller_name: s.name, locality: s.place ?? null, project_type: s.project ?? null, property_detail: s.detail ?? null, bhk: s.bhk ?? null, size_sqft: s.sqft ?? null, timeline_text: c.criteria?.timeline.evidence ?? s.timeline ?? null, referral_source: s.source ?? null }
         : null,
-      flags: s.unrated ? ["unclassified"] : s.tight ? ["budget_tight"] : [],
+      flags: s.unrated ? ["unclassified"] : (s.flags ?? (s.tight ? ["budget_tight"] : [])),
       consultType: s.book ? "call" : null,
       referralSource: s.source ?? null,
       existingProjectDesigner: s.status === "escalated" || s.category === "existing_client" ? "Demo Designer" : null,
-      transcript: hasTranscript && spoke ? transcript(s, Boolean(s.leak)) : null,
-      summary: summary(s),
-      handoffNote: rated || s.review === "rescued" ? `Call ${s.name ?? "the caller"} before the design call. ${s.timeline ?? ""}`.trim() : s.status === "escalated" ? `Existing client${s.name ? `, ${s.name},` : ""} needs a senior person to call back today.` : null,
-      openQuestions: rated ? (s.tier === "amber" ? ["When does the work need to be finished?", "Who else is part of the decision?"] : ["Floor plan or photos of the rooms?"]) : null,
+      transcript: c.transcript,
+      summary: c.summary,
+      handoffNote: c.handoffNote,
+      openQuestions: c.openQuestions.length ? c.openQuestions : null,
       // Demo rows are never sent anywhere, but the time-to-handoff metric needs a value to show.
       telegramSentAt: rated ? new Date(ended.getTime() + handoff * 1000) : null,
       vaaniCostInr: vaani,

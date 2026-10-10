@@ -4,6 +4,7 @@ import { errorSummary } from "@/lib/http/retry";
 import { syncReviewDecision, type HubspotCtx } from "@/lib/hubspot/sync";
 import type { PipelineRepo } from "@/lib/pipeline/repo";
 import type { Role } from "@/lib/auth/session";
+import { callbackNote } from "./callback";
 import { isDemoCallId } from "./demo";
 import type { AnyDb } from "./types";
 
@@ -11,9 +12,12 @@ import type { AnyDb } from "./types";
  * Designer actions (PRD D3). The decision is saved first (review_actions plus calls.review_state); HubSpot is
  * synced second, and a HubSpot failure is recorded as a failed `hubspot_review` pipeline step the dashboard
  * can retry, never undoing or blocking the decision (AT21). Red leads are never deleted: Discard only sets
- * review_state. Approve is for leads that are not Red; Rescue only for Red leads.
+ * review_state. There is no Approve: a Green or Amber lead is active from the start (review_state "none").
+ * "discard" is what the dashboard calls Cancel (a reason is required) and is stored under that name so
+ * the HubSpot sync and history stay as they were; "callback" is stored as a note that begins "Called back".
+ * Rescue is only for Red leads. Cancelling does not touch the Cal.com booking.
  */
-export type ReviewActionName = "approve" | "rescue" | "discard" | "note";
+export type ReviewActionName = "rescue" | "discard" | "note" | "callback";
 
 export interface ReviewDeps {
   db: AnyDb;
@@ -31,26 +35,27 @@ export const HUBSPOT_REVIEW_STEP = "hubspot_review";
 
 export async function applyReview(deps: ReviewDeps, input: { callId: string; action: ReviewActionName; note?: string; role: Role }): Promise<ReviewResult> {
   const note = (input.note ?? "").trim().slice(0, NOTE_MAX);
+  if (!["rescue", "discard", "note", "callback"].includes(input.action)) return { ok: false, error: "That action is not available." };
   const call = await deps.repo.getCall(input.callId);
   if (!call) return { ok: false, error: "Call not found." };
 
   if ((input.action === "discard" || input.action === "note") && note.length < (input.action === "discard" ? 3 : 1)) {
-    return { ok: false, error: input.action === "discard" ? "A reason is required to discard a lead." : "Write a note first." };
-  }
-  if (input.action === "approve") {
-    if (call.tier === "red") return { ok: false, error: "A Red lead can be rescued, not approved." };
-    if (call.reviewState !== "none") return { ok: false, error: "This lead has already been reviewed." };
+    return { ok: false, error: input.action === "discard" ? "A reason is required to cancel a lead." : "Write a note first." };
   }
   if (input.action === "rescue") {
     if (call.tier !== "red") return { ok: false, error: "Only a Red lead can be rescued." };
     if (call.reviewState !== "none") return { ok: false, error: "This lead has already been reviewed." };
   }
-  if (input.action === "discard" && call.reviewState === "discarded") return { ok: false, error: "This lead is already discarded." };
+  if (input.action === "discard" && call.reviewState === "discarded") return { ok: false, error: "This lead is already cancelled." };
 
+  if (input.action === "callback") {
+    await deps.db.insert(reviewActions).values({ callId: call.id, actorRole: input.role, action: "note", note: callbackNote(note) });
+    return { ok: true, hubspot: "not_needed" };
+  }
   await deps.db.insert(reviewActions).values({ callId: call.id, actorRole: input.role, action: input.action, note: note || null });
   if (input.action === "note") return { ok: true, hubspot: "not_needed" };
 
-  const reviewState = input.action === "approve" ? "approved" : input.action === "rescue" ? "rescued" : "discarded";
+  const reviewState = input.action === "rescue" ? "rescued" : "discarded";
   await deps.repo.updateCall(call.id, { reviewState });
   return syncToHubspot(deps, call.id);
 }

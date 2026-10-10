@@ -2,6 +2,8 @@ import { and, asc, desc, eq, inArray, isNull, ne, or, sql, type SQL } from "driz
 import { bookings, calls, pipelineSteps, reviewActions } from "@/db/schema";
 import { istDayBounds, tsParam } from "./range";
 import { istParts } from "@/lib/rules/time";
+import { summaryOrExcerpt } from "@/lib/pipeline/facts";
+import { CALLBACK_PREFIX } from "./callback";
 import type { AnyDb, CallListItem, ListFilters, SheetFilters, Tab, TodoGroups, ViewTab } from "./types";
 
 /**
@@ -26,11 +28,7 @@ export const callTime = sql<Date>`coalesce(${calls.startedAt}, ${calls.createdAt
 export function tabCondition(tab: Tab): SQL | undefined {
   switch (tab) {
     case "needs_review":
-      // Awaiting a designer, or an Amber lead nobody has reviewed yet. Never dropped, escalated or Red.
-      return and(
-        eq(calls.reviewState, "none"),
-        or(eq(calls.status, "awaiting_designer"), and(eq(calls.tier, "amber"), inArray(calls.status, ["booked", "awaiting_designer"]))),
-      );
+      return needsYouCondition();
     case "booked":
       return eq(calls.status, "booked");
     case "unqualified":
@@ -78,13 +76,19 @@ const listSelect = {
   flags: calls.flags,
   locality: facts("locality"),
   projectType: facts("project_type"),
-  summary: sql<string | null>`left(${calls.summary}, 220)`,
+  summary: sql<string | null>`left(${calls.summary}, 600)`,
+  // Only fetched when there is no summary: the list shows the caller's own words instead (see mapRows).
+  transcriptHead: sql<string | null>`case when ${calls.summary} is null or btrim(${calls.summary}) = '' then left(${calls.transcript}, 2500) end`,
+  calledBack: sql<boolean>`exists (select 1 from review_actions ra where ra.call_id = ${callIdRef} and ra.action = 'note' and ra.note like ${`${CALLBACK_PREFIX}%`})`,
   consultAt: sql<Date | null>`(select b.start_at from bookings b where b.call_id = ${callIdRef} and b.status = 'accepted')`,
   durationSeconds: calls.durationSeconds,
 };
 
-function mapRows(rows: Array<{ callTime: Date; consultAt: Date | null }>): CallListItem[] {
-  return rows.map((r) => ({ ...r, callTime: new Date(r.callTime), consultAt: r.consultAt ? new Date(r.consultAt) : null })) as CallListItem[];
+function mapRows(rows: Array<{ callTime: Date; consultAt: Date | null; summary: string | null; transcriptHead: string | null }>): CallListItem[] {
+  return rows.map(({ transcriptHead, ...r }) => {
+    const brief = summaryOrExcerpt({ summary: r.summary, transcript: transcriptHead }, 220);
+    return { ...r, brief: brief.text, briefIsExcerpt: brief.isExcerpt, callTime: new Date(r.callTime), consultAt: r.consultAt ? new Date(r.consultAt) : null };
+  }) as CallListItem[];
 }
 
 /** Upcoming design calls first (soonest at the top), then past ones (most recent first). */
@@ -149,15 +153,20 @@ export async function getCallDetail(db: AnyDb, id: string) {
 const acceptedBookingIn = (from: Date, to?: Date) =>
   sql`exists (select 1 from bookings b where b.call_id = ${callIdRef} and b.status = 'accepted' and b.start_at >= ${tsParam(from)}${to ? sql` and b.start_at < ${tsParam(to)}` : sql``})`;
 
-/** Someone has to act: an unreviewed Amber or unrated lead, an escalation, or a dropped call needing a callback. */
+/**
+ * Someone has to act. A Green or Amber lead is active by default (review state "none" means nothing to
+ * approve), so a booked lead is NOT here: it needs a designer only when there is no design call yet
+ * (awaiting a designer, which includes unrated calls), or a dropped or escalated call has no logged call-back.
+ */
 export const needsYouCondition = (): SQL | undefined =>
   and(
     eq(calls.reviewState, "none"),
     or(
       eq(calls.status, "awaiting_designer"),
-      eq(calls.status, "escalated"),
-      eq(calls.status, "dropped"),
-      and(eq(calls.tier, "amber"), inArray(calls.status, ["booked", "awaiting_designer"])),
+      and(
+        inArray(calls.status, ["escalated", "dropped"]),
+        sql`not exists (select 1 from review_actions ra where ra.call_id = ${callIdRef} and ra.action = 'note' and ra.note like ${`${CALLBACK_PREFIX}%`})`,
+      ),
     ),
   );
 
@@ -165,7 +174,7 @@ const TODO_CAP = 300;
 
 /**
  * To do: "Needs you now" (high priority first, then oldest), "Today" (design calls today by time) and "Coming up".
- * A call is in one group only: a booked Amber lead nobody has reviewed is in "Needs you now".
+ * A call is in one group only.
  */
 export async function listTodo(db: AnyDb, f: SheetFilters, now: Date): Promise<TodoGroups> {
   const base = filterConditions(f);

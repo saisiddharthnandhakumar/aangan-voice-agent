@@ -61,3 +61,18 @@ HubSpot cannot create saved views through the API we use, so do these once. Menu
 - `aangan_tier` reads Green, Amber, Red or Not rated; `aangan_status` reads Booked, Awaiting designer, Unqualified verified, Dropped, Escalated, Not an enquiry, Approved, Rescued or Discarded. The latest call sets both.
 - Deal amounts are **estimates** from the call, labelled so in the deal description (or " (estimate)" in the name if HubSpot rejects the description). No studio pricing is ever written to HubSpot, and the caller's budget words are left out of call notes.
 - Full transcripts stay in the dashboard database; HubSpot gets the summary and a link.
+
+## Demo data in HubSpot (optional)
+
+`pnpm db:seed` never touches HubSpot. To fill the CRM for a demo, run the loader against the database that holds the demo calls (`--env-file=` picks the env file, default `.env.local`; it needs `DATABASE_URL`, `HUBSPOT_ACCESS_TOKEN` and the `HUBSPOT_STAGE_*` IDs):
+
+```bash
+pnpm demo:hubspot                 # dry run: lists what it would create, writes nothing
+pnpm demo:hubspot --yes           # does it (default 45 contacts; --limit=N, never more than 50)
+pnpm demo:purge --hubspot         # archives the HubSpot deals, call records and contacts, then removes the database rows
+```
+
+- It uses the normal pipeline functions, so Green and Amber calls (and calls a designer rescued) get a contact, a call record and a deal; Red calls get a contact and a call record only. It sleeps 1.5 s between calls to stay under the rate limits and skips any call that already has a HubSpot ID, so a second run creates nothing. If a call fails half way it keeps its IDs and is skipped next time; archive and re-seed to retry it.
+- Demo records are recognisable: fictional names, an `@example.com` email (`demo-NNNNN@example.com`, standard `email` property), phone numbers in the fake `+9199999NNNNN` range, and deal names ending "(DEMO)". No custom property is invented.
+- The HubSpot IDs are stored on the demo call rows. `pnpm demo:purge` without `--hubspot` removes only the database rows, leaving the HubSpot objects with no record of their IDs: it prints a reminder, so use `--hubspot` first. Archiving uses `DELETE /crm/v3/objects/{type}/{id}`.
+- UNVERIFIED: the archive calls and the loader have only run against in-memory test doubles, not a live account.

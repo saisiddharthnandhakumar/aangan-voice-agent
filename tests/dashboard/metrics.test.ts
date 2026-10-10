@@ -137,9 +137,9 @@ describe("founder metrics, hand-computed (PRD section 4)", () => {
 
   it("now: live calls, active leads, waiting too long", () => {
     expect(m.now.liveCalls).toBe(1);
-    expect(m.now.activeLeads).toEqual({ amberAwaitingReview: 1, greenWithConsultAhead: 1, total: 2 });
-    // a1 (Amber, unreviewed) was created 12 Oct 04:00Z, 50 h before NOW
-    expect(m.now.waitingTooLong).toEqual({ count: 1, oldestHours: 50, thresholdHours: 4 });
+    expect(m.now.activeLeads).toEqual({ amberActive: 2, greenWithConsultAhead: 1, total: 3 });
+    // a1 (Amber, booked) is active, not waiting; only a lead still awaiting a designer and a design call counts
+    expect(m.now.waitingTooLong).toEqual({ count: 0, oldestHours: null, thresholdHours: 4 });
   });
 
   it("daily series cover every day in range, in IST", () => {

@@ -43,7 +43,7 @@ At runtime the pricing figures and the rubric reach the server only through the 
 2. **After the call.** Vaani posts `call_started`, `user_picked_up_at`, `call_ended` and `call_postprocessing` to the webhook. The route checks the URL token in constant time (Vaani signs nothing), stores the raw event first, ignores a repeat of the same event, answers 200 and does the work in `after()`. The webhook row is merged into the row the tool calls created, matched by time window and phone; an ambiguous match is flagged for manual linking.
 3. **The pipeline** (`src/lib/pipeline`). `save` fills derived fields; `enrich` reads Vaani call history (tolerating its current 500); `booking` settles a booking whose Cal.com create timed out; `gemini` writes the summary, handoff note and open questions (**Gemini never changes the tier**); `tier` sets the final status, marks dropped calls and links repeat callers; `leak_check` scans the agent's own words for prices; `cost` is duration × the Vaani rate plus Gemini token cost; `telegram` sends the alerts; `hubspot_log` and `hubspot_deal` log to HubSpot. Telegram runs before HubSpot so a HubSpot outage never delays an alert. A failed step does not stop the others and can be retried from the dashboard.
 4. **Who gets what.** Green and Amber → designers' Telegram group, labelled with the tier. Existing-client callbacks, dropped calls with a number and unrated calls → designers. Complaints and price leaks → founder chat. Red, vendors, wrong numbers and every test call → no message. A redial edits the first alert so one lead has one alert. HubSpot gets every non-test call; Green and Amber get a deal automatically, Red only on Rescue.
-5. **The dashboard** (`/dashboard`, `/dashboard/founder`). **No login by default** (user decision 2026-10-10): anyone with the web address sees callers' names, phone numbers and transcripts and can press Approve or Discard. Set `DASHBOARD_LOGIN=on` in Vercel to bring back the two-role password login (`DASHBOARD_DESIGNER_PASSWORD`, `DASHBOARD_FOUNDER_PASSWORD`, `SESSION_SECRET` are then required). Designers work the queue and press Approve, Rescue, Discard (reason required) or Note; each is saved first and synced to HubSpot second. The founder sees every PRD metric (`docs/METRICS.md`), charts, a date range and a CSV.
+5. **The dashboard** (`/dashboard`, `/dashboard/founder`). **No login by default** (user decision 2026-10-10): anyone with the web address sees callers' names, phone numbers and transcripts and can log a call-back, add notes or cancel leads. Set `DASHBOARD_LOGIN=on` in Vercel to bring back the two-role password login (`DASHBOARD_DESIGNER_PASSWORD`, `DASHBOARD_FOUNDER_PASSWORD`, `SESSION_SECRET` are then required). Every Green and Amber lead is active by default (there is no Approve). Designers work the queue: each lead row has a Call back button (a tel: link), and the lead page can log a call-back, add a Note, Rescue a Red lead, or Cancel the lead (a reason is required; stored as a discard, moves the HubSpot deal to Lost, never deletes data, and does not cancel the Cal.com booking). Rescue and Cancel are saved first and synced to HubSpot second. The founder sees every PRD metric (`docs/METRICS.md`), charts, a date range and a CSV.
 
 ## Rules that never bend
 
@@ -62,7 +62,8 @@ pnpm install
 cp .env.example .env.local   # fill in values; DATABASE_URL is the only one required to start
 pnpm db:migrate              # applies drizzle/ migrations to the database in .env.local
 pnpm db:seed                 # loads ~45 fictional demo- calls (not is_test; idempotent)
-pnpm demo:purge              # removes every demo- call
+pnpm demo:purge              # removes every demo- call (add --hubspot to archive their HubSpot objects too)
+pnpm demo:hubspot            # dry run: lists what a HubSpot demo load would create (add --yes to do it)
 pnpm dev                     # http://localhost:3000
 ```
 
@@ -76,7 +77,8 @@ Every variable, where to get it and where it goes is in `docs/SETUP_CHECKLIST.md
 | `pnpm lint` | ESLint |
 | `pnpm leak:scan` | Fails if a staged file holds a pricing figure or a database password marker (run `git add -A` first) |
 | `pnpm db:generate` / `pnpm db:migrate` | New migration from `src/db/schema.ts` / apply it (`ENV_FILE=.env.main-branch.local pnpm db:migrate` for production) |
-| `pnpm db:seed` / `pnpm demo:purge` | Load / remove ~45 fictional demo calls (`demo-` IDs) |
+| `pnpm db:seed` / `pnpm demo:purge` | Load / remove ~45 fictional demo calls (`demo-` IDs); the transcripts, summaries and criteria are hand-written in `src/lib/demo/content-*.ts` |
+| `pnpm demo:hubspot [--yes] [--limit=45]` | Log the demo calls to HubSpot (dry run unless `--yes`; max 50 contacts; skips calls that already have HubSpot IDs). See `docs/HUBSPOT_SETUP.md` |
 | `pnpm rubric:build` / `rubric:check` | Build `rubric.txt` from `docs/source/` and the examples |
 | `pnpm rubric:env` | Write `rubric.txt` base64-encoded into `RUBRIC_TXT_B64` (copy it to Vercel) |
 | `pnpm pricing:config` | Write `PRICING_CONFIG_JSON` from the local pricing guide |
@@ -91,15 +93,15 @@ Every variable, where to get it and where it goes is in `docs/SETUP_CHECKLIST.md
 
 ## Runbook
 
-**A call produced no alert or no row.** Open `/api/health` (database, which integrations have keys). In the dashboard, find the call (All tab, show test calls) and read its Pipeline steps: a failed step shows its last error and a Retry button. No row at all means the webhook never arrived: check Vaani's webhook URL and token, and Vercel's function logs for `/api/webhooks/vaani/call-ended` (a 401 means the token differs from `VAANI_WEBHOOK_SECRET`).
+**A call produced no alert or no row.** Open `/api/health` (database, which integrations have keys). In the dashboard, find the call (All tab, show test calls) and check its `pipeline_steps` rows in the database (the call page no longer lists them); a failed step has its last error there and can be re-run with `POST /api/pipeline/retry`. No row at all means the webhook never arrived: check Vaani's webhook URL and token, and Vercel's function logs for `/api/webhooks/vaani/call-ended` (a 401 means the token differs from `VAANI_WEBHOOK_SECRET`).
 
 **The agent did not book / said "a designer will call you back".** Look at the call's tool log: the `tool_calls` table holds every request and response, including rejected ones (a 401 with the secret length, which means a wrong `X-Tool-Secret` in Vaani). `book_consult` refuses Red and unrated calls on purpose.
 
-**A pending booking.** If Cal.com timed out, the booking stays `pending` and the daily job (or a Retry on the Booking check step) looks it up at Cal.com and marks it accepted or failed.
+**A pending booking.** If Cal.com timed out, the booking stays `pending` and the daily job (or a retry of the booking step through `/api/pipeline/retry`) looks it up at Cal.com and marks it accepted or failed.
 
-**HubSpot or Telegram down.** Calls still land in Neon and on the dashboard. Retry the failed steps from the call page once the service is back; retries never duplicate (HubSpot IDs and sent-alert markers are stored). A designer's Approve/Rescue/Discard is saved even if HubSpot fails; use "Retry" on the HubSpot review sync step.
+**HubSpot or Telegram down.** Calls still land in Neon and on the dashboard. Retry the failed steps through `/api/pipeline/retry` once the service is back; retries never duplicate (HubSpot IDs and sent-alert markers are stored). A designer's Rescue or Cancel is saved even if HubSpot fails; the failed `hubspot_review` step is recorded in `pipeline_steps`, but the call page no longer has a Retry button and `/api/pipeline/retry` does not know that step, so fix HubSpot by hand or ask for a retry path to be added.
 
-**Gemini down or over budget.** Alerts still go out with an excerpt of what the caller said; the summary fills in on a Retry of the Gemini step. Update `GEMINI_PRICE_IN/OUT_PER_MTOK_INR` when Google's prices change (the current model's price steps up on 1 Jan 2027).
+**Gemini down or over budget.** Alerts still go out with an excerpt of what the caller said; the summary fills in when the Gemini step is retried through `/api/pipeline/retry`. Update `GEMINI_PRICE_IN/OUT_PER_MTOK_INR` when Google's prices change (the current model's price steps up on 1 Jan 2027).
 
 **Changing the prompt or the rubric.** Edit `docs/vaani/system_prompt.template.txt` or the files in `docs/source/`, run `pnpm rubric:build && pnpm vaani:prompt`, run `pnpm eval:agent --runs=3`, paste the new prompt into Vaani, and update `RUBRIC_TXT_B64` (`pnpm rubric:env`, then Vercel) so Gemini reads the same rubric.
 

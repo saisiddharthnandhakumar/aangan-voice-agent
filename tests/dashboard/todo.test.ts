@@ -3,7 +3,7 @@ import { founderHeadlines, activePreset } from "@/lib/dashboard/founder-view";
 import { founderMetrics } from "@/lib/dashboard/metrics";
 import { activeFilterCount, calledAgo, designCallText, nextAction } from "@/lib/dashboard/present";
 import { listCalls, listTodo, needYouCount, viewTabCounts } from "@/lib/dashboard/queries";
-import { addBooking, addCall, testDb, type TestDb } from "./harness";
+import { addAction, addBooking, addCall, testDb, type TestDb } from "./harness";
 
 const NOW = new Date("2026-10-14T06:00:00Z"); // Wed 11:30 IST
 let db: TestDb;
@@ -39,9 +39,9 @@ beforeAll(async () => {
 const names = (items: Array<{ callerName: string | null }>) => items.map((i) => i.callerName);
 
 describe("To do groups", () => {
-  it("Needs you now: high priority first, then oldest; dropped, escalated and unreviewed Amber included", async () => {
+  it("Needs you now: high priority first, then oldest; a booked Amber lead is active, not waiting", async () => {
     const t = await listTodo(db, {}, NOW);
-    expect(names(t.needsYou)).toEqual(["green-high", "amber-old", "amber-booked", "escalated", "amber-new", "dropped"]);
+    expect(names(t.needsYou)).toEqual(["green-high", "amber-old", "escalated", "amber-new", "dropped"]);
     expect(t.needsYou[0].callerName).toBe("green-high");
     expect(names(t.needsYou)).not.toContain("dropped-done");
     expect(names(t.needsYou)).not.toContain("test");
@@ -51,22 +51,46 @@ describe("To do groups", () => {
   it("Today by time, Coming up by time, and no call in two groups", async () => {
     const t = await listTodo(db, {}, NOW);
     expect(names(t.today)).toEqual(["today-early", "today-late"]);
-    expect(names(t.comingUp)).toEqual(["tomorrow", "friday"]);
-    expect(names(t.needsYou)).toContain("amber-booked");
-    expect(names(t.comingUp)).not.toContain("amber-booked");
+    expect(names(t.comingUp)).toEqual(["tomorrow", "amber-booked", "friday"]);
+    expect(names(t.needsYou)).not.toContain("amber-booked");
     expect(names([...t.needsYou, ...t.today, ...t.comingUp])).not.toContain("past");
   });
 
   it("applies the Filter sheet filters", async () => {
     expect(names((await listTodo(db, { priority: "high" }, NOW)).needsYou)).toEqual(["green-high"]);
     const after = await listTodo(db, { afterHours: "yes" }, NOW);
-    expect(names(after.needsYou)).toEqual(["amber-booked"]);
+    expect(names(after.needsYou)).toEqual([]);
     expect(names(after.today)).toEqual(["today-late"]);
+    expect(names(after.comingUp)).toEqual(["amber-booked"]);
     expect(names((await listTodo(db, { includeTests: true }, NOW)).needsYou)).toContain("test");
   });
 
   it("counts what needs a designer, for the landing page", async () => {
-    expect(await needYouCount(db)).toBe(6);
+    expect(await needYouCount(db)).toBe(5);
+  });
+
+  it("a logged call-back takes a dropped or escalated lead off Needs you now, and the row says so", async () => {
+    const d = await testDb();
+    const x = await addCall(d, { callerName: "x", status: "dropped", tier: null, startedAt: "2026-10-14T05:00:00Z" });
+    const y = await addCall(d, { callerName: "y", status: "escalated", tier: null, startedAt: "2026-10-14T05:00:00Z" });
+    expect(await needYouCount(d)).toBe(2);
+    await addAction(d, x.id, "note", "2026-10-14T05:30:00Z", "Called back");
+    await addAction(d, y.id, "note", "2026-10-14T05:30:00Z", "left a voicemail"); // an ordinary note is not a call-back
+    expect(await needYouCount(d)).toBe(1);
+    const all = (await listCalls(d, { tab: "all" })).items;
+    expect(all.find((i) => i.callerName === "x")).toMatchObject({ calledBack: true });
+    expect(all.find((i) => i.callerName === "y")).toMatchObject({ calledBack: false });
+  });
+
+  it("every row carries a summary, else an excerpt of the caller's own words", async () => {
+    const d = await testDb();
+    await addCall(d, { callerName: "with", summary: "Wants a two-bedroom refit in Baner.", startedAt: "2026-10-14T05:00:00Z" });
+    await addCall(d, { callerName: "without", transcript: "AGENT: Hello\nUSER: I need my kitchen redone", startedAt: "2026-10-14T05:00:00Z" });
+    await addCall(d, { callerName: "empty", startedAt: "2026-10-14T05:00:00Z" });
+    const by = Object.fromEntries((await listCalls(d, { tab: "all" })).items.map((i) => [i.callerName, i]));
+    expect(by.with).toMatchObject({ brief: "Wants a two-bedroom refit in Baner.", briefIsExcerpt: false });
+    expect(by.without).toMatchObject({ brief: expect.stringContaining("kitchen redone"), briefIsExcerpt: true });
+    expect(by.empty).toMatchObject({ brief: null });
   });
 
   it("counts the three tabs", async () => {
@@ -91,7 +115,10 @@ describe("Booked and price-leak lists", () => {
 describe("plain wording", () => {
   const base = { tier: null, status: "awaiting_designer", reviewState: "none", consultAt: null } as const;
   it("says what to do next", () => {
-    expect(nextAction({ ...base, tier: "amber" })).toBe("Review, then book a call");
+    expect(nextAction({ ...base, tier: "amber" })).toBe("No design call yet. Call them to book one.");
+    expect(nextAction({ ...base, tier: "amber", status: "booked", consultAt: NOW })).toBe("Design call booked. Read the brief.");
+    expect(nextAction({ ...base, status: "dropped", calledBack: true })).toBe("Called back. Nothing more to do.");
+    expect(nextAction({ ...base, tier: "amber", reviewState: "discarded" })).toBe("Cancelled. Nothing to do.");
     expect(nextAction({ ...base, tier: "green", status: "booked", consultAt: NOW })).toBe("Design call booked. Read the brief.");
     expect(nextAction({ ...base, status: "dropped" })).toBe("Call back. They hung up early.");
     expect(nextAction({ ...base, tier: "red", status: "unqualified_verified" })).toBe("Declined kindly. Nothing to do.");

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, isNull, lt, lte, ne, notLike, or, sql } from "drizzle-orm";
 import type { InferSelectModel } from "drizzle-orm";
 import type { Db } from "@/db";
 import type { AnyDb } from "@/lib/dashboard/types";
@@ -46,7 +46,7 @@ export interface PipelineRepo {
   countCallsFromNumber(fromNumber: string): Promise<number>;
   /** Bookings still pending that were created before `olderThan` (the daily job reconciles them). */
   listPendingBookings(olderThan: Date): Promise<Array<{ callId: string }>>;
-  /** Red leads from the last day and every unreviewed Amber lead, test calls excluded. */
+  /** Red leads from the last day and every Amber lead still without a design call, test calls excluded. */
   digestItems(now: Date): Promise<DigestItem[]>;
   /**
    * Retention: clear transcripts and recording links of calls older than `before`. The call row, summary,
@@ -178,8 +178,9 @@ export function drizzlePipelineRepo(anyDb: AnyDb): PipelineRepo {
         .where(
           and(
             eq(calls.isTest, false),
+            or(isNull(calls.vaaniCallId), notLike(calls.vaaniCallId, "demo-%")), // demo data must never reach a real digest
             eq(calls.reviewState, "none"),
-            or(and(eq(calls.tier, "amber"), inArray(calls.status, ["booked", "awaiting_designer"])), and(eq(calls.tier, "red"), gte(calls.createdAt, dayAgo))),
+            or(and(eq(calls.tier, "amber"), eq(calls.status, "awaiting_designer")), and(eq(calls.tier, "red"), gte(calls.createdAt, dayAgo))),
           ),
         )
         .orderBy(calls.createdAt);

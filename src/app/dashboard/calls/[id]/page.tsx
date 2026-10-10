@@ -8,8 +8,9 @@ import { callFacts, projectLine } from "@/lib/pipeline/facts";
 import { hubspotRecordUrl } from "@/lib/hubspot/mapping";
 import { formatIst, statusLabel } from "@/lib/rules";
 import { calledAgo, designCallText, nextAction } from "@/lib/dashboard/present";
+import { dialable, isCallbackNote } from "@/lib/dashboard/callback";
 import { Card, Chip, displayName, StatusChip, TierBadge } from "../../_components/ui";
-import { RetryButton, ReviewForm } from "./review-form";
+import { ReviewForm } from "./review-form";
 
 export const metadata = { title: "Lead · Aangan Studio" };
 export const maxDuration = 300;
@@ -22,12 +23,6 @@ const CRITERIA: Array<[string, string]> = [
   ["budget", "Budget"],
   ["decision_maker", "Decision maker"],
 ];
-const STEP_LABELS: Record<string, string> = {
-  save: "Save", enrich: "Vaani details", booking: "Booking check", gemini: "Gemini summary", tier: "Final status", leak_check: "Price-leak check",
-  cost: "Cost", telegram: "Telegram alert", hubspot_log: "HubSpot contact and call", hubspot_deal: "HubSpot deal", hubspot_review: "HubSpot review sync",
-};
-const STEP_TONE = { succeeded: "ok", skipped: "plain", failed: "bad", running: "warn", pending: "warn" } as const;
-
 function criteriaOf(raw: unknown): Crit | null {
   const r = raw as { recorded?: Crit; final?: Crit } | null;
   return r?.recorded ?? r?.final ?? null;
@@ -38,7 +33,9 @@ export default async function CallPage({ params }: { params: Promise<{ id: strin
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const detail = await getCallDetail(db(), id);
   if (!detail) notFound();
-  const { call, booking, steps, actions, related } = detail;
+  const { call, booking, actions, related } = detail;
+  const tel = dialable(call.fromNumber);
+  const calledBack = actions.some((a) => isCallbackNote(a.note));
   const facts = callFacts(call);
   const turns = parseTranscript(call.transcript);
   const agentCrit = criteriaOf(call.criteriaAgent);
@@ -46,7 +43,7 @@ export default async function CallPage({ params }: { params: Promise<{ id: strin
   const portal = env().HUBSPOT_PORTAL_ID ?? null;
   const when = call.startedAt ?? call.createdAt;
   const link = (obj: string, hid: string | null) => hubspotRecordUrl(portal, obj, hid);
-  const failedSteps = steps.filter((s) => s.status === "failed");
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,6 +54,7 @@ export default async function CallPage({ params }: { params: Promise<{ id: strin
           <TierBadge tier={call.tier} />
           {call.priority === "high" && <Chip tone="warn">High priority</Chip>}
           {call.isTest && <Chip>Test call</Chip>}
+          {call.reviewState === "discarded" && <Chip tone="bad">Cancelled</Chip>}
           {call.priceLeak && <Chip tone="bad">Price leak</Chip>}
         </div>
         <p className="num mt-2 text-[13px] text-ink-3">
@@ -69,20 +67,22 @@ export default async function CallPage({ params }: { params: Promise<{ id: strin
       <section aria-label="Next action" className="grid gap-4 rounded-2xl border border-line border-l-4 border-l-[var(--accent)] bg-surface p-5 sm:grid-cols-[1fr_auto] sm:items-center">
         <div>
           <p className="text-[13px] font-semibold tracking-[0.08em] text-ink-2 uppercase">Next action</p>
-          <p className="font-display mt-1 text-[22px] leading-snug font-semibold">{nextAction({ tier: call.tier, status: call.status, reviewState: call.reviewState, consultAt: booking?.status === "accepted" ? booking.startAt : null })}</p>
+          <p className="font-display mt-1 text-[22px] leading-snug font-semibold">{nextAction({ tier: call.tier, status: call.status, reviewState: call.reviewState, calledBack, consultAt: booking?.status === "accepted" ? booking.startAt : null })}</p>
           <p className="mt-1 text-[13px] text-ink-3"><StatusChip status={call.status} review={call.reviewState} /> <span className="ml-1">{calledAgo(when, new Date())}</span></p>
         </div>
-        <div className="sm:text-right">
+        <div className="flex flex-col gap-3 sm:items-end sm:text-right">
+          {tel && (
+            <a href={`tel:${tel}`} className="num inline-flex min-h-12 items-center justify-center rounded-lg bg-accent px-6 text-base font-semibold text-accent-ink hover:opacity-90">
+              Call back {call.fromNumber}
+            </a>
+          )}
+          <div>
           <p className="text-[13px] font-semibold tracking-[0.08em] text-ink-2 uppercase">Design call</p>
           <p className="num font-display mt-1 text-[22px] font-semibold">{designCallText(booking?.status === "accepted" ? booking.startAt : null, new Date())}</p>
+          </div>
         </div>
       </section>
 
-      {failedSteps.length > 0 && (
-        <p role="alert" className="rounded-2xl bg-bad-bg px-5 py-4 text-base text-bad-ink">
-          {failedSteps.length === 1 ? "One step failed" : `${failedSteps.length} steps failed`}: {failedSteps.map((s) => STEP_LABELS[s.step] ?? s.step).join(", ")}. Retry them under &quot;Pipeline steps&quot; below. The lead itself is safe.
-        </p>
-      )}
       {call.flags.includes("unclassified") && (
         <p className="rounded-2xl bg-warn-bg px-5 py-4 text-base text-warn-ink">The voice agent did not record a tier for this call (its tools did not reach us), so it is unrated. Please read the summary and transcript and decide.</p>
       )}
@@ -196,23 +196,6 @@ export default async function CallPage({ params }: { params: Promise<{ id: strin
             <p className="text-base text-ink-2">{call.telegramSentAt ? `Alert sent ${formatIst(call.telegramSentAt)} IST` : "No alert sent for this call."}</p>
           </Card>
 
-          <Card title="Pipeline steps">
-            <ul className="flex flex-col gap-2">
-              {steps.length === 0 && <li className="text-base text-ink-2">No steps recorded.</li>}
-              {steps.map((s) => (
-                <li key={s.id} className="flex flex-col gap-1 rounded-lg border border-line px-3 py-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-base font-medium">{STEP_LABELS[s.step] ?? s.step}</span>
-                    <Chip tone={STEP_TONE[s.status as keyof typeof STEP_TONE] ?? "plain"}>{s.status}</Chip>
-                  </div>
-                  <span className="num text-[13px] text-ink-3">{s.attempts} attempt{s.attempts === 1 ? "" : "s"} · {formatIst(s.updatedAt)} IST</span>
-                  {s.lastError && <span className="text-[13px] text-ink-2">{s.lastError}</span>}
-                  {(s.status === "failed" || (s.status === "skipped" && s.lastError === "missing_config")) && <RetryButton callId={call.id} step={s.step} />}
-                </li>
-              ))}
-            </ul>
-          </Card>
-
           <Card title="History">
             {actions.length === 0 ? (
               <p className="text-base text-ink-2">No actions yet.</p>
@@ -220,7 +203,7 @@ export default async function CallPage({ params }: { params: Promise<{ id: strin
               <ol className="flex flex-col gap-2 text-base">
                 {actions.map((a) => (
                   <li key={a.id}>
-                    <span className="font-medium capitalize">{a.action}</span> <span className="text-ink-3">by {a.actorRole} · {formatIst(a.createdAt)} IST</span>
+                    <span className="font-medium">{isCallbackNote(a.note) ? "Call-back" : a.action === "discard" ? "Cancelled" : a.action === "note" ? "Note" : a.action === "rescue" ? "Rescued" : a.action}</span> <span className="text-ink-3">by {a.actorRole} · {formatIst(a.createdAt)} IST</span>
                     {a.note && <p className="text-ink-2">{a.note}</p>}
                   </li>
                 ))}

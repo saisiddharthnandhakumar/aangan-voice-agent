@@ -14,6 +14,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx scripts/seed.ts",
     "demo:purge": "tsx scripts/demo-purge.ts",
+    "demo:hubspot": "tsx scripts/demo-hubspot.ts",
     "check": "pnpm typecheck && pnpm test",
     "rubric:build": "tsx scripts/build-rubric.ts",
     "rubric:check": "tsx scripts/build-rubric.ts --check",

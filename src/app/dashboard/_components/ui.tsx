@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { statusLabel, tierLabel } from "@/lib/rules";
+import { tierLabel } from "@/lib/rules";
+import { reviewStateLabel } from "@/lib/dashboard/present";
 
 /** Tier and status are always text as well as colour, never colour alone. */
 const TIER_STYLE = {
@@ -30,7 +31,7 @@ export function Chip({ children, tone = "plain" }: { children: ReactNode; tone?:
 }
 
 export function StatusChip({ status, review }: { status: string; review: string }) {
-  return <Chip>{statusLabel(status as Parameters<typeof statusLabel>[0], review as Parameters<typeof statusLabel>[1])}</Chip>;
+  return <Chip>{reviewStateLabel(status, review)}</Chip>;
 }
 
 export function Card({ title, children, aside, id }: { title?: ReactNode; children: ReactNode; aside?: ReactNode; id?: string }) {

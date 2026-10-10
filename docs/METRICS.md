@@ -7,8 +7,8 @@ Rules for all of them: **test calls are never counted**; a call's time is Vaani'
 | Metric | Definition (calls table unless stated) |
 |---|---|
 | Live calls (now) | `status = 'in_call'` and created in the last 30 minutes (a call stuck in `in_call` after the webhook never came is not live) |
-| Active leads (now) | Amber with `review_state = 'none'`, plus Green with an accepted booking whose `start_at` is still ahead |
-| Waiting too long (now) | Amber with `review_state = 'none'` created more than `AMBER_STALE_HOURS` (default 4) ago; oldest = the largest age among them |
+| Active leads (now) | Amber that is not cancelled (`review_state <> 'discarded'`; there is no Approve step, a lead is active by default), plus Green with an accepted booking whose `start_at` is still ahead |
+| Waiting too long (now) | Amber with `review_state = 'none'` and status `awaiting_designer` (no design call yet) created more than `AMBER_STALE_HOURS` (default 4) ago; oldest = the largest age among them |
 | Calls received | Calls in range |
 | Answered | `answered_at` set, or the agent categorised the call, or a transcript exists |
 | Missed or not connected | Received minus answered. **Seen by Vaani only**: a call that never reached Vaani is invisible |
@@ -27,9 +27,9 @@ Rules for all of them: **test calls are never counted**; a call's time is Vaani'
 | Lead source | Count by `lower(trim(referral_source))`, top 10 |
 | HubSpot: calls logged | `hubspot_call_id` set; completeness = logged ÷ received |
 | HubSpot: failed | Calls with a `hubspot_log` or `hubspot_deal` pipeline step in `failed` |
-| HubSpot: deals | `hubspot_deal_id` set, by tier; and by `review_state` approved / rescued |
+| HubSpot: deals | `hubspot_deal_id` set, by tier; and by `review_state` approved (legacy rows from before Approve was removed) / rescued |
 | Cost | Sums of `vaani_cost_inr`, `gemini_cost_inr`, `total_cost_inr`; per call = total ÷ calls that have a cost; per booked design call = total ÷ bookings |
-| Estimated pipeline | Sum of `estimated_value_inr` for qualified leads (Green, Amber, or Approved/Rescued, never Discarded). An **estimate**, shown beside total cost |
+| Estimated pipeline | Sum of `estimated_value_inr` for qualified leads (Green, Amber, or Rescued (or legacy Approved), never Cancelled (stored as `discarded`)). An **estimate**, shown beside total cost |
 | Calls per day, cost per day | Grouped by the IST date of the call time |
 
 What is deliberately **not** shown anywhere: the budget floor, any pricing figure, per-call estimated values (project size beside an estimate would reveal the rates), the caller's budget words, and transcripts in the CSV.

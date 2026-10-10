@@ -142,7 +142,7 @@ describe("daily digest (P9)", () => {
       "https://aangan.example",
       now,
     );
-    expect(d.text).toContain("Amber, not yet reviewed (1)");
+    expect(d.text).toContain("Amber, no design call yet (1)");
     expect(d.text).toContain("Priya, Kothrud (22h ago)");
     expect(d.text).toContain("Red in the last day (1)");
     expect(d.text).toContain("Unknown caller, Nashik (7h ago)");

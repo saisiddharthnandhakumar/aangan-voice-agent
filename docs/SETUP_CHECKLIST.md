@@ -30,7 +30,7 @@ Set each in `.env.local` (dev branch) and in Vercel → Settings → Environment
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_ESCALATION_CHAT_ID` | **you**: `docs/TELEGRAM_SETUP.md` | **no** |
 | `APP_BASE_URL` | `https://aangan-voice-agent-inky.vercel.app` (defaults from Vercel's production domain) | yes |
 | `SESSION_SECRET`, `CRON_SECRET` | You generate; sign login cookies and authorise the cron | yes |
-| `DASHBOARD_LOGIN` | **`off` (the default): no login at all.** Anyone with the web address can open the dashboard, see callers' phone numbers and transcripts, and press Approve or Discard. Set `on` to require the two passwords below | default off |
+| `DASHBOARD_LOGIN` | **`off` (the default): no login at all.** Anyone with the web address can open the dashboard, see callers' phone numbers and transcripts, and cancel leads or log notes. Set `on` to require the two passwords below | default off |
 | `DASHBOARD_DESIGNER_PASSWORD`, `DASHBOARD_FOUNDER_PASSWORD`, `SESSION_SECRET` | Only used when `DASHBOARD_LOGIN=on`. You choose the passwords (at least 8 characters, different) | set, unused |
 | `PRICING_CONFIG_JSON` | `pnpm pricing:config` from the local pricing guide | yes |
 | `RUBRIC_TXT_B64` | `pnpm rubric:build && pnpm rubric:env`. Rerun and update Vercel after any rubric change | yes |

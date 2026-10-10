@@ -16,31 +16,22 @@ const state = (db: TestDb, id: string) => db.select().from(schema.calls).where(e
 const actions = (db: TestDb, id: string) => db.select().from(schema.reviewActions).where(eq(schema.reviewActions.callId, id));
 const steps = (db: TestDb, id: string) => db.select().from(schema.pipelineSteps).where(eq(schema.pipelineSteps.callId, id));
 
-describe("Approve (AT19)", () => {
-  it("on an unreviewed lead sets Approved, creates the deal and records who did it", async () => {
-    const { db, row, hs, deps } = await setup({ tier: null, status: "awaiting_designer", priority: "normal", hubspotContactId: "c-existing" });
-    const r = await applyReview(deps(), { callId: row.id, action: "approve", role: "designer" });
-    expect(r).toEqual({ ok: true, hubspot: "synced" });
-    expect(await state(db, row.id)).toMatchObject({ reviewState: "approved", hubspotDealId: expect.any(String) });
-    expect(await actions(db, row.id)).toMatchObject([{ action: "approve", actorRole: "designer" }]);
-    expect(hs.state.deals.size).toBe(1);
-    expect([...hs.state.contacts.values()].at(-1)).toMatchObject({ aangan_status: "approved" });
-    expect((await steps(db, row.id))[0]).toMatchObject({ step: "hubspot_review", status: "succeeded", attempts: 1 });
+describe("No Approve: a Green or Amber lead is active from the start", () => {
+  it("approve is no longer an action, and nothing changes for a lead nobody touched", async () => {
+    const { db, row, deps } = await setup({ tier: "amber", status: "awaiting_designer" });
+    expect(await applyReview(deps(), { callId: row.id, action: "approve" as never, role: "designer" })).toEqual({ ok: false, error: "That action is not available." });
+    expect((await state(db, row.id)).reviewState).toBe("none");
   });
-  it("on an Amber lead that already has a deal only changes the status, no second deal", async () => {
-    const { db, row, hs, deps } = await setup({ tier: "amber", status: "awaiting_designer", hubspotContactId: "c1", hubspotDealId: "d1" });
-    hs.state.deals.set("d1", { dealstage: "st_await" });
-    await applyReview(deps(), { callId: row.id, action: "approve", role: "founder" });
-    expect([...hs.state.deals.keys()]).toEqual(["d1"]); // still the one deal
-    expect(hs.state.contacts.get("c1")).toMatchObject({ aangan_status: "approved", aangan_tier: "amber" });
-    expect(await actions(db, row.id)).toMatchObject([{ actorRole: "founder" }]);
-  });
-  it("is refused on a Red lead, or one already reviewed", async () => {
-    const red = await setup({ tier: "red", status: "unqualified_verified" });
-    expect(await applyReview(red.deps(), { callId: red.row.id, action: "approve", role: "designer" })).toMatchObject({ ok: false });
-    const done = await setup({ tier: "amber", reviewState: "approved" });
-    expect(await applyReview(done.deps(), { callId: done.row.id, action: "approve", role: "designer" })).toMatchObject({ ok: false, error: expect.stringContaining("already") });
-    expect(await actions(done.db, done.row.id)).toHaveLength(0);
+});
+
+describe("Log a call-back", () => {
+  it("is saved as a note starting 'Called back', with no state change and no HubSpot call; an optional detail is appended", async () => {
+    const { db, row, hs, deps } = await setup({ tier: null, status: "dropped" });
+    expect(await applyReview(deps(), { callId: row.id, action: "callback", role: "designer" })).toEqual({ ok: true, hubspot: "not_needed" });
+    expect(await applyReview(deps(), { callId: row.id, action: "callback", role: "designer", note: "will visit Saturday" })).toEqual({ ok: true, hubspot: "not_needed" });
+    expect((await actions(db, row.id)).map((a) => [a.action, a.note]).sort()).toEqual([["note", "Called back"], ["note", "Called back: will visit Saturday"]]);
+    expect((await state(db, row.id)).reviewState).toBe("none");
+    expect(hs.state.requests).toBe(0);
   });
 });
 
@@ -58,7 +49,7 @@ describe("Rescue", () => {
   });
 });
 
-describe("Discard", () => {
+describe("Cancel (stored as discard)", () => {
   it("requires a reason", async () => {
     const { db, row, deps } = await setup({ tier: "amber" });
     for (const note of [undefined, "", "  ", "ab"]) expect(await applyReview(deps(), { callId: row.id, action: "discard", role: "designer", note })).toMatchObject({ ok: false, error: expect.stringContaining("reason") });
@@ -97,10 +88,10 @@ describe("Note", () => {
 
 describe("HubSpot down (AT21)", () => {
   it("the decision is kept, the failure is recorded for retry, and a retry succeeds once HubSpot is back", async () => {
-    const { db, row, hs, deps } = await setup({ tier: null, status: "awaiting_designer", hubspotContactId: "c1" }, fakeHubspot({ down: true }));
-    const r = await applyReview(deps(), { callId: row.id, action: "approve", role: "designer" });
+    const { db, row, hs, deps } = await setup({ tier: "red", status: "unqualified_verified", hubspotContactId: "c1" }, fakeHubspot({ down: true }));
+    const r = await applyReview(deps(), { callId: row.id, action: "rescue", role: "designer" });
     expect(r).toMatchObject({ ok: true, hubspot: "failed", hubspotError: expect.stringContaining("HubSpot") });
-    expect(await state(db, row.id)).toMatchObject({ reviewState: "approved" });
+    expect(await state(db, row.id)).toMatchObject({ reviewState: "rescued" });
     expect((await steps(db, row.id))[0]).toMatchObject({ step: "hubspot_review", status: "failed", attempts: 1, lastError: expect.stringContaining("HubSpot") });
 
     hs.state.down = false;
@@ -109,12 +100,12 @@ describe("HubSpot down (AT21)", () => {
     expect(hs.state.deals.size).toBe(1);
   });
   it("skips HubSpot for test calls and when it is not configured", async () => {
-    const t = await setup({ tier: null, isTest: true });
-    expect(await applyReview(t.deps(), { callId: t.row.id, action: "approve", role: "designer" })).toEqual({ ok: true, hubspot: "skipped" });
+    const t = await setup({ tier: "red", isTest: true });
+    expect(await applyReview(t.deps(), { callId: t.row.id, action: "rescue", role: "designer" })).toEqual({ ok: true, hubspot: "skipped" });
     expect(t.hs.state.requests).toBe(0);
-    const n = await setup({ tier: null });
-    expect(await applyReview(n.deps({ hubspot: null }), { callId: n.row.id, action: "approve", role: "designer" })).toEqual({ ok: true, hubspot: "skipped" });
-    expect((await state(n.db, n.row.id)).reviewState).toBe("approved");
+    const n = await setup({ tier: "red" });
+    expect(await applyReview(n.deps({ hubspot: null }), { callId: n.row.id, action: "rescue", role: "designer" })).toEqual({ ok: true, hubspot: "skipped" });
+    expect((await state(n.db, n.row.id)).reviewState).toBe("rescued");
   });
   it("an unknown call is an error, not a crash", async () => {
     const { deps } = await setup({});
