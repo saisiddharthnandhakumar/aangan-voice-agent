@@ -4,17 +4,23 @@ Every non-test call is logged: a **contact** (matched by phone, or an "Unknown c
 
 HubSpot Free limits that shape this build: **10 custom properties in total** (we use 8), **no custom deal pipeline** (we use the default one), and **1,000 contacts**. At roughly 200 calls a month, with repeat callers sharing a contact, the contact limit fills in about 5 months: plan to clean up or upgrade before then.
 
-## 1. Create the credential, **before 2026-10-26**
+## 1. Create the credential: a service key
 
-New "legacy private apps" can no longer be created after 2026-10-26 on accounts older than 2026-09-28. Do this first.
+Newer HubSpot accounts no longer offer legacy private apps ("Legacy apps aren't available on this account"). Use a **service key** instead: it is a Bearer token with the same object scopes, limited to the REST API, which is exactly what this build needs. (Menu wording may differ slightly in your account.)
 
-1. HubSpot → **Development** → **Legacy apps** → **Create legacy app** → **Private**. (Super admin only. The menu wording may differ in your account.)
+1. HubSpot → **Development** (left menu) → **Legacy Apps** page → click **Create a service key**. Or **Development → Keys → Service keys → Create**. You need to be a super admin or have developer tools access.
 2. Name it "Aangan voice agent".
-3. **Scopes** tab, tick: `crm.objects.contacts.read`, `crm.objects.contacts.write`, `crm.objects.deals.read`, `crm.objects.deals.write`, `crm.schemas.contacts.read`, `crm.schemas.contacts.write`, `crm.schemas.deals.read`. (Call records are covered by the contacts write scope.)
-4. Create the app and copy the **access token**. Put it only in `.env.local` as `HUBSPOT_ACCESS_TOKEN=…`, and later in Vercel. Never paste it into a chat or website.
-5. Also set `HUBSPOT_PORTAL_ID` to your account ID (the number in HubSpot URLs, `app.hubspot.com/contacts/<this number>/…`).
+3. Tick these scopes: `crm.objects.contacts.read`, `crm.objects.contacts.write`, `crm.objects.deals.read`, `crm.objects.deals.write`, `crm.schemas.contacts.read`, `crm.schemas.contacts.write`, `crm.schemas.deals.read`. (Call records are covered by the contacts write scope.)
+4. Create it and **copy the key** (HubSpot may show it only once). Do not paste it into chat or a website. With the key still on your clipboard, add it to the local env file without displaying it:
 
-If you prefer the newer **Service key** (Development → Keys → Service keys), it works the same way with the same scopes; its availability on Free is unconfirmed.
+   ```bash
+   cd "/Users/saisiddharthnandhakumar/Documents/Mesa/Aangan Design Studio for Vaani Voice AI" && printf 'HUBSPOT_ACCESS_TOKEN=%s\n' "$(pbpaste)" >> .env.local && pbcopy < /dev/null && echo "added (not shown); clipboard cleared"
+   ```
+
+   Later, paste it into Vercel (Settings → Environment Variables → Production, name `HUBSPOT_ACCESS_TOKEN`) by copying it from HubSpot again, or with `pnpm secrets:copy HUBSPOT_ACCESS_TOKEN`.
+5. Set `HUBSPOT_PORTAL_ID` to your account ID: the number in HubSpot page URLs (`app.hubspot.com/contacts/<this number>/…`). It is not a secret.
+
+The key has a 7-day rotation grace period if you ever rotate it. Availability on the Free plan is shown by your screenshot: the button exists.
 
 ## 2. Create the properties and find the pipeline
 
