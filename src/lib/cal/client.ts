@@ -135,3 +135,47 @@ export async function createBooking(cfg: CalConfig, input: CreateBookingInput): 
   if (!data?.uid) throw new CalError("booking response had no uid", null, "shape");
   return data;
 }
+
+/**
+ * GET /v2/bookings, used only to reconcile a booking whose create timed out (Phase 4).
+ * Checked on 2026-10-10 against cal.com/docs/api-reference/v2/bookings/get-all-bookings: version
+ * header 2026-05-01 (different from create's), filters attendeeEmail, eventTypeId,
+ * afterCreatedAt, limit (1–100); cursor pagination; data[] items have uid, start, end, status,
+ * attendees[].email, metadata. UNVERIFIED against the live account (no booking made yet).
+ */
+export const CAL_LIST_BOOKINGS_VERSION = "2026-05-01";
+
+export interface CalListedBooking {
+  uid: string;
+  start: string;
+  end?: string;
+  status?: string;
+  attendeeEmails: string[];
+  metadata: Record<string, string>;
+}
+
+export async function findBookings(
+  cfg: CalConfig,
+  q: { attendeeEmail: string; eventTypeId?: number; afterCreatedAt?: string },
+): Promise<CalListedBooking[]> {
+  const qs = new URLSearchParams({ attendeeEmail: q.attendeeEmail, limit: "20" });
+  if (q.eventTypeId) qs.set("eventTypeId", String(q.eventTypeId));
+  if (q.afterCreatedAt) qs.set("afterCreatedAt", q.afterCreatedAt);
+  const value = await retrying(
+    () => request<{ data?: unknown }>(cfg, `/v2/bookings?${qs}`, { method: "GET", version: CAL_LIST_BOOKINGS_VERSION, timeoutMs: 5000 }),
+    { attempts: 3, baseDelayMs: 500, maxDelayMs: 2000, retryable: retryableRead },
+  );
+  if (!Array.isArray(value?.data)) throw new CalError("unexpected bookings list response", null, "shape");
+  return (value.data as Array<Record<string, unknown>>)
+    .filter((b) => typeof b.uid === "string" && typeof b.start === "string")
+    .map((b) => ({
+      uid: b.uid as string,
+      start: b.start as string,
+      end: typeof b.end === "string" ? b.end : undefined,
+      status: typeof b.status === "string" ? b.status : undefined,
+      attendeeEmails: Array.isArray(b.attendees)
+        ? (b.attendees as Array<{ email?: unknown }>).map((a) => String(a?.email ?? "").toLowerCase()).filter(Boolean)
+        : [],
+      metadata: b.metadata && typeof b.metadata === "object" ? (b.metadata as Record<string, string>) : {},
+    }));
+}

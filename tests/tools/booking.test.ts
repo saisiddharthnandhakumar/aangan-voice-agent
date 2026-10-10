@@ -4,26 +4,38 @@ import { deps, json, memoryRepo, mockCal, slotsResponse } from "./fakes";
 
 const SLOT = "2026-10-13T03:30:00.000Z"; // Tue 9 AM IST
 
-async function setup(tier: "green" | "amber" | "red" = "green") {
+async function setup(tier: "green" | "amber" | "red" | null = "green") {
   const m = memoryRepo();
   await m.repo.createCall({ callRef: "ABCDEF", status: "in_call", tier, fromNumber: "+919876543210", callerName: "Priya" });
   return m;
 }
 
 const booked = () => json({ status: "success", data: { id: 1, uid: "bk_123", start: SLOT, end: "2026-10-13T04:30:00.000Z", status: "accepted" } }, 201);
-const req = (o: Record<string, unknown> = {}) => ({ call_id: "ABCDEF", slot_start_iso: SLOT, consult_type: "site_visit", site_area: "Kothrud", caller_name: "Priya", phone: "+91 98765 43210", email: null, project_summary: "3BHK full redo", ...o });
+const req = (o: Record<string, unknown> = {}) => ({ call_id: "ABCDEF", slot_start_iso: SLOT, consult_type: "call", site_area: "Kothrud", caller_name: "Priya", phone: "+91 98765 43210", email: null, project_summary: "3BHK full redo", ...o });
 
 describe("T3 book_consult", () => {
-  it("books a Green call and reads the time back", async () => {
-    const m = await setup();
+  it.each(["green", "amber"] as const)("books a %s call as a design call and reads the time back", async (tier) => {
+    const m = await setup(tier);
     const cal = mockCal({ book: booked });
     const r = await bookConsult(req(), deps({ repo: m.repo, fetchImpl: cal.fetchImpl }));
-    expect(r.body).toEqual({ booked: true, spoken_confirmation: "You're booked for a site visit tomorrow at 9 AM. A designer will meet you at Kothrud." });
-    expect(m.bookings[0]).toMatchObject({ status: "accepted", calBookingUid: "bk_123", consultType: "site_visit", eventTypeId: 111, emailIsPlaceholder: true });
-    expect(m.calls[0]).toMatchObject({ consultType: "site_visit", siteArea: "Kothrud" });
+    expect(r.body).toEqual({
+      booked: true,
+      spoken_confirmation: "You're booked for a design call with one of our designers tomorrow at 9 AM. The designer will call you on this number at that time.",
+    });
+    expect(m.bookings[0]).toMatchObject({ status: "accepted", calBookingUid: "bk_123", consultType: "call", eventTypeId: 222, emailIsPlaceholder: true });
+    expect(m.calls[0]).toMatchObject({ consultType: "call", siteArea: "Kothrud", tier });
   });
 
-  it("sends the verified booking shape: version header, attendee, address location, placeholder email", async () => {
+  it("books a design call even if the agent asks for a site visit (only the design call exists)", async () => {
+    const m = await setup();
+    const cal = mockCal({ book: booked });
+    await bookConsult(req({ consult_type: "site_visit" }), deps({ repo: m.repo, fetchImpl: cal.fetchImpl }));
+    expect(cal.requests[0].body).toMatchObject({ eventTypeId: 222 });
+    expect(cal.requests[0].body).not.toHaveProperty("location");
+    expect(m.bookings[0].consultType).toBe("call");
+  });
+
+  it("sends the verified booking shape: version header, attendee, no location, placeholder email", async () => {
     const m = await setup();
     const cal = mockCal({ book: booked });
     await bookConsult(req(), deps({ repo: m.repo, fetchImpl: cal.fetchImpl }));
@@ -31,11 +43,11 @@ describe("T3 book_consult", () => {
     expect(r.headers["cal-api-version"]).toBe("2026-02-25");
     expect(r.body).toMatchObject({
       start: SLOT,
-      eventTypeId: 111,
+      eventTypeId: 222,
       attendee: { name: "Priya", email: "abcdef@example.com", timeZone: "Asia/Kolkata", phoneNumber: "+919876543210", language: "en" },
-      location: { type: "attendeeAddress", address: "Kothrud" },
       metadata: { call_ref: "ABCDEF" },
     });
+    expect(r.body).not.toHaveProperty("location");
     expect(JSON.stringify(r.body)).not.toMatch(/lakh|₹|per sq/i);
   });
 
@@ -48,7 +60,7 @@ describe("T3 book_consult", () => {
     expect(m.bookings[0].emailIsPlaceholder).toBe(false);
   });
 
-  it.each(["amber", "red"] as const)("refuses a %s call without touching Cal.com (rule 4, AT8)", async (tier) => {
+  it.each(["red", null] as const)("refuses a %s call without touching Cal.com (AT8 as amended)", async (tier) => {
     const m = await setup(tier);
     const cal = mockCal({ book: booked });
     const r = await bookConsult(req(), deps({ repo: m.repo, fetchImpl: cal.fetchImpl }));

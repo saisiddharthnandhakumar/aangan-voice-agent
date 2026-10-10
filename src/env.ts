@@ -118,6 +118,13 @@ export const envSchema = z
      * Kept out of the public repo on purpose. The rules engine reads it in Phase 2.
      */
     PRICING_CONFIG_JSON: optionalString,
+
+    /**
+     * rubric.txt, base64-encoded, for the post-call Gemini step. rubric.txt is gitignored (it
+     * contains the internal pricing section), so it reaches the server only through this
+     * variable. Written by `pnpm rubric:env`. Locally the file itself is used if this is empty.
+     */
+    RUBRIC_TXT_B64: optionalString,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;
@@ -163,9 +170,11 @@ export function integrationStatus(e: Env = env()) {
     vaani_api: Boolean(e.VAANI_API_KEY),
     vaani_webhook: Boolean(e.VAANI_WEBHOOK_SECRET),
     vaani_tools: Boolean(e.VAANI_TOOL_SECRET),
-    cal: Boolean(e.CAL_API_KEY && e.CAL_EVENT_TYPE_ID_SITE_VISIT && e.CAL_EVENT_TYPE_ID_CALL),
+    // Only the design call is booked (decision 2026-10-10); the site-visit event type is unused.
+    cal: Boolean(e.CAL_API_KEY && e.CAL_EVENT_TYPE_ID_CALL),
     hubspot: Boolean(e.HUBSPOT_ACCESS_TOKEN),
     telegram: Boolean(e.TELEGRAM_BOT_TOKEN && e.TELEGRAM_CHAT_ID),
     pricing_config: Boolean(e.PRICING_CONFIG_JSON),
+    rubric: Boolean(e.RUBRIC_TXT_B64),
   };
 }

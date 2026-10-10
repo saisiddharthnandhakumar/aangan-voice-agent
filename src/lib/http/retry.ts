@@ -28,7 +28,9 @@ const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 export async function withRetry<T>(fn: (attempt: number) => Promise<T>, opts: RetryOptions): Promise<{ value: T; attempts: number }> {
   const sleep = opts.sleep ?? defaultSleep;
   let last: unknown;
+  let made = 0;
   for (let attempt = 1; attempt <= opts.attempts; attempt++) {
+    made = attempt;
     try {
       return { value: await fn(attempt), attempts: attempt };
     } catch (err) {
@@ -39,7 +41,8 @@ export async function withRetry<T>(fn: (attempt: number) => Promise<T>, opts: Re
       await sleep(Math.max(opts.retryAfterMs?.(err) ?? 0, backoff + jitter));
     }
   }
-  throw new RetryError(errorSummary(last), opts.attempts, last);
+  // attempts = the attempts actually made (a non-retryable error stops early).
+  throw new RetryError(errorSummary(last), made, last);
 }
 
 /** A short, safe error description for pipeline_steps.last_error: no URLs, keys or payloads. */

@@ -77,7 +77,7 @@ export function toolDeps(): ToolDeps {
           baseUrl: e.CAL_API_BASE_URL,
           versionSlots: e.CAL_API_VERSION_SLOTS,
           versionBookings: e.CAL_API_VERSION_BOOKINGS,
-          eventTypeIds: { site_visit: e.CAL_EVENT_TYPE_ID_SITE_VISIT, call: e.CAL_EVENT_TYPE_ID_CALL },
+          eventTypeId: e.CAL_EVENT_TYPE_ID_CALL,
         }
       : null,
     placeholderEmailDomain: e.PLACEHOLDER_EMAIL_DOMAIN,

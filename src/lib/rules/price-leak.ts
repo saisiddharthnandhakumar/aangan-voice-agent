@@ -72,3 +72,17 @@ export function detectPriceLeak(turns: readonly string[], pricing: Pick<PricingC
   });
   return { leak: leakedTurns.length > 0, kinds: [...kinds], turns: leakedTurns };
 }
+
+/**
+ * Mask money in free text written by a model (summaries, handoff notes) before it is stored or
+ * sent anywhere: "₹7.7 lakh", "Rs 4321", "33 lakh", "1,234 per sq ft", "9 crore" → "[amount]".
+ */
+export function redactMoney(text: string): string {
+  const n = String.raw`\d+(?:,\d+)*(?:\.\d+)?`; // internal commas only, so "Rs 2000, 3 crore" stays two amounts
+  return text
+    .replace(new RegExp(String.raw`(₹|\brs\.?|\binr)\s*${n}(\s*(lakhs?|lacs?|crores?|k|l|cr)\b)?`, "gi"), "[amount]")
+    .replace(new RegExp(String.raw`\b${n}\s*(to|-|–)\s*${n}\s*(lakhs?|lacs?|crores?)\b`, "gi"), "[amount]")
+    .replace(new RegExp(String.raw`\b${n}\s*(lakhs?|lacs?|crores?|cr)\b`, "gi"), "[amount]")
+    .replace(new RegExp(String.raw`\b${n}\s*(rupees?|rupaye)\b`, "gi"), "[amount]")
+    .replace(new RegExp(String.raw`\b${n}\s*(\/|per)\s*(sq\.?\s*(ft|feet)|sqft|square\s*(feet|foot))`, "gi"), "[amount] per sq ft");
+}

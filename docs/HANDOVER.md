@@ -1,6 +1,6 @@
 # Aangan voice agent: handover for the next session
 
-Written 2026-10-10 at the end of Phase 3. Read this first, then `docs/PRD.md` (local only, gitignored) and `docs/PLATFORM_NOTES.md`.
+Written 2026-10-10 at the end of Phase 3; updated at the end of Phase 4 (see §4 and the 2026-10-10 decision at the top of §5). Read this first, then `docs/PRD.md` (local only, gitignored) and `docs/PLATFORM_NOTES.md`.
 
 ## 0. Paste this into the new chat to start
 
@@ -77,7 +77,20 @@ An inbound phone enquiry agent for Aangan Studio, an interior design studio in P
 - **Vaani call-history API:** the key works (no 401), but `GET /api/call-history` returns **500 "Invalid client_id format"**, which is a Vaani-side bug. Enrichment must tolerate this.
 - **Secret exposure:** the prod `VAANI_TOOL_SECRET` value appeared in a tool output once. The user was told to rotate it at go-live (env files, Vercel, the 3 Vaani tools).
 
+- **Phase 4, done (2026-10-10):**
+  - Tool contract changed to the 2026-10-10 decision (below): `submit_assessment` takes the agent's `tier` and `tier_reason`; `canBook` = Green or Amber; only the design-call event type; prompt template rewritten.
+  - Webhook `POST /api/webhooks/vaani/call-ended?token=` (atomic per-event-type idempotency in `calls.raw_webhook`), adapter `src/lib/vaani/events.ts`, merge with the tool row (`src/lib/pipeline/correlate.ts`), steps `save, enrich, booking, gemini, tier, leak_check, cost, hubspot_log, hubspot_deal, telegram` (last three skipped until Phase 5), `POST /api/pipeline/retry` (CRON_SECRET bearer), `pnpm e2e:webhook`, `pnpm rubric:env`.
+  - Verified locally against the dev branch with the real Gemini: Mode A (merged, agent tier kept, duplicate ignored) and Mode B (unclassified). 283 tests.
+  - Vaani history `call_cost` is in **credits**, so Vaani cost = duration × rate. Cal.com list-bookings needs version `2026-05-01`.
+
 ## 5. Key design decisions already made (don't re-ask)
+
+- **2026-10-10, overrides the PRD (user decision at the start of Phase 4):**
+  - The Vaani agent decides Green/Amber/Red itself from rubric.txt in the call; the backend stores it as given. No rules-engine tier, no Gemini tier, no `tier_conflict`. The user was told an LLM's budget/timeline arithmetic goes unchecked and accepted it.
+  - Green **and Amber** are offered slots and booked; only the "Aangan design call" event type is used, never the site visit. `book_consult` refuses only Red/untiered.
+  - Amber differs from Green only by its label (dashboards, HubSpot deal, Telegram). Red: kind, fuller decline in the call; still stored with summary and transcript, in HubSpot (contact + call; deal only on Rescue) and on the dashboard; no Telegram.
+  - Gemini writes summary, handoff note, open questions and a price-leak verdict only. A call no tool call reached is `awaiting_designer` with flag `unclassified`.
+  - Rubric at runtime: `RUBRIC_TXT_B64`.
 
 - **Rules defaults approved by the user** ("go with what you feel is best"):
   - Budget: under 70% of floor fails; 70–100% passes with budget_tight. BHK carpet areas 550/900/1,150/2,000.
@@ -105,7 +118,7 @@ An inbound phone enquiry agent for Aangan Studio, an interior design studio in P
 - **Phone:** the studio office number gets linked later. Missed calls that never reach Vaani are invisible (the founder metric is labelled accordingly).
 - **Booking without email:** placeholder `<call_ref>@PLACEHOLDER_EMAIL_DOMAIN`. Site visit location = attendeeAddress(site_area); call = no location (Meet). A Cal.com create is never retried after a timeout; the booking is left `pending` for reconciliation.
 
-## 6. Phase 4 spec (next): webhook and pipeline (PRD P1–P8)
+## 6. Phase 4 spec (DONE; kept for reference, tiering superseded by §5's 2026-10-10 decision)
 
 Vaani webhook facts (`docs/PLATFORM_NOTES.md` §1.4):
 - Set **per org** in Settings → Webhooks. It's a URL only, with **no signature**.

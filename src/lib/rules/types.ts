@@ -125,6 +125,18 @@ export const assessmentInputObject = z.object({
     )
     .transform((fs) => fs.filter((f): f is (typeof AGENT_FLAGS)[number] => (AGENT_FLAGS as readonly string[]).includes(f)))
     .default([]),
+  /**
+   * The agent's own tier, decided in the call from rubric.txt (user decision 2026-10-10: the voice
+   * agent decides the tier; the backend stores it as given). Anything else reads as null.
+   */
+  tier: z
+    .preprocess((v) => {
+      const s = typeof v === "string" ? v.trim().toLowerCase() : null;
+      return s === "green" || s === "amber" || s === "red" ? s : null;
+    }, z.enum(["green", "amber", "red"]).nullable())
+    .default(null),
+  /** The agent's one-line reason for its tier, for the dashboard. Never read aloud. */
+  tier_reason: text,
   /** Extra field (proposal e4): the agent has already asked whether the date can move (V8, AT3). */
   timeline_move_asked: z
     .preprocess((v) => v === true || v === "true" || v === "yes", z.boolean())

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkAvailability } from "@/lib/tools/service";
 import { deps, json, memoryRepo, mockCal, slotsResponse } from "./fakes";
 
-async function greenCall(m: ReturnType<typeof memoryRepo>, tier: "green" | "amber" = "green") {
+async function greenCall(m: ReturnType<typeof memoryRepo>, tier: "green" | "amber" | "red" = "green") {
   const row = await m.repo.createCall({ callRef: "ABCDEF", status: "in_call", tier });
   return row!;
 }
@@ -74,15 +74,25 @@ describe("T2 check_availability", () => {
     expect(cal.requests).toHaveLength(2);
   });
 
-  it("refuses non-Green and unknown calls without calling Cal.com", async () => {
+  it("refuses Red and unknown calls without calling Cal.com", async () => {
+    const m = memoryRepo();
+    await greenCall(m, "red");
+    const cal = mockCal({ slots: () => slotsResponse(SLOTS) });
+    const red = await checkAvailability({ call_id: "ABCDEF" }, deps({ repo: m.repo, fetchImpl: cal.fetchImpl }));
+    const unknown = await checkAvailability({ call_id: "ZZZZZZ" }, deps({ repo: m.repo, fetchImpl: cal.fetchImpl }));
+    expect(red.body.slots).toEqual([]);
+    expect(unknown.body.agent_note).toMatch(/submit_assessment first/);
+    expect(cal.requests).toHaveLength(0);
+  });
+
+  it("offers Amber calls the same design-call slots as Green (decision 2026-10-10)", async () => {
     const m = memoryRepo();
     await greenCall(m, "amber");
     const cal = mockCal({ slots: () => slotsResponse(SLOTS) });
-    const amber = await checkAvailability({ call_id: "ABCDEF", consult_type: "site_visit" }, deps({ repo: m.repo, fetchImpl: cal.fetchImpl }));
-    const unknown = await checkAvailability({ call_id: "ZZZZZZ", consult_type: "site_visit" }, deps({ repo: m.repo, fetchImpl: cal.fetchImpl }));
-    expect(amber.body.slots).toEqual([]);
-    expect(unknown.body.agent_note).toMatch(/submit_assessment first/);
-    expect(cal.requests).toHaveLength(0);
+    const r = await checkAvailability({ call_id: "ABCDEF", consult_type: "site_visit" }, deps({ repo: m.repo, fetchImpl: cal.fetchImpl }));
+    expect(r.body.slots.length).toBeGreaterThan(0);
+    // Whatever consult_type the agent sends, only the design-call event type is queried.
+    expect(cal.requests[0].query.eventTypeId).toBe("222");
   });
 
   it("never offers a slot in the past", async () => {

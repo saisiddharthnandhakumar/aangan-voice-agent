@@ -13,6 +13,8 @@ const body = (o: Record<string, unknown> = {}) => ({
   size_sqft: 1400,
   locality: "Kothrud",
   completion_needed_by: "2027-03-01",
+  tier: "green",
+  tier_reason: "all five criteria pass",
   criteria: {
     real_project: { status: "pass", evidence: "redo the whole thing" },
     service_area: { status: "pass", evidence: "Kothrud" },
@@ -37,13 +39,35 @@ describe("T1 submit_assessment", () => {
   it("updates the same call when the agent passes call_id back (re-assessment)", async () => {
     const m = memoryRepo();
     const d = deps({ repo: m.repo });
-    const first = await submitAssessment(body({ completion_needed_by: "2026-10-30", criteria: { ...body().criteria, timeline: { status: "fail", evidence: "3 weeks" } } }), d);
-    expect(first.body.action).toBe("ask_date_move");
-    const second = await submitAssessment(body({ call_id: first.body.call_id?.toLowerCase(), timeline_move_asked: true, completion_needed_by: null, criteria: { ...body().criteria, timeline: { status: "unclear", evidence: "will think" } } }), d);
+    const first = await submitAssessment(body({ tier: "red", tier_reason: "needs it in 3 weeks", completion_needed_by: "2026-10-30" }), d);
+    expect(first.body).toMatchObject({ tier: "red", action: "decline" });
+    const second = await submitAssessment(body({ call_id: first.body.call_id?.toLowerCase(), tier: "amber", tier_reason: "date can move, will think", timeline_move_asked: true, completion_needed_by: null }), d);
     expect(second.body.call_id).toBe(first.body.call_id);
-    expect(second.body.tier).toBe("amber");
+    expect(second.body).toMatchObject({ tier: "amber", action: "offer_booking" });
     expect(m.calls).toHaveLength(1);
+    expect(m.calls[0]).toMatchObject({ tier: "amber", tierReasons: ["date can move, will think"] });
+  });
+
+  it("stores the agent's tier as given; the rules engine never overrides it (decision 2026-10-10)", async () => {
+    const m = memoryRepo();
+    // The rules engine would call this Red (Nashik); the agent said Amber, so Amber is stored.
+    const r = await submitAssessment(body({ tier: "amber", locality: "Nashik", criteria: { ...body().criteria, service_area: { status: "fail", evidence: "Nashik" } } }), deps({ repo: m.repo }));
+    expect(r.body).toMatchObject({ tier: "amber", action: "offer_booking", callback_phrase: null });
     expect(m.calls[0].tier).toBe("amber");
+  });
+
+  it("Red gets the decline action and Nikhil's decline line; the agent explains the reason itself", async () => {
+    const r = await submitAssessment(body({ tier: "RED", tier_reason: "site in Nashik" }), deps());
+    expect(r.body).toMatchObject({ tier: "red", action: "decline", say_reason: null });
+    expect(r.body.callback_phrase).toMatch(/may not be the right fit/);
+  });
+
+  it("an enquiry with no tier gets a callback and a note to resubmit", async () => {
+    const m = memoryRepo();
+    const r = await submitAssessment(body({ tier: undefined }), deps({ repo: m.repo }));
+    expect(r.body).toMatchObject({ tier: null, action: "callback" });
+    expect(r.body.agent_note).toMatch(/No tier was sent/);
+    expect(m.calls[0].tier).toBeNull();
   });
 
   it("reuses the open call from the same number when call_id is missing", async () => {
@@ -71,16 +95,16 @@ describe("T1 submit_assessment", () => {
     expect(isTestMode(null)).toBe(false);
   });
 
-  it("stores the rule results, never a figure in the reply", async () => {
+  it("stores the volunteered budget, never a figure in the reply", async () => {
     const m = memoryRepo();
-    const r = await submitAssessment(body({ volunteered_budget_low_inr: 1, volunteered_budget_high_inr: 1.5 }), deps({ repo: m.repo }));
+    const r = await submitAssessment(body({ tier: "red", volunteered_budget_low_inr: 1, volunteered_budget_high_inr: 1.5 }), deps({ repo: m.repo }));
     expect(r.body.tier).toBe("red");
     expect(m.calls[0]).toMatchObject({ budgetLowInr: 100_000, budgetHighInr: 150_000 });
     expect(JSON.stringify(r.body)).not.toMatch(/\d{4,}|lakh|₹/);
   });
 
-  it("a complaint escalates with no tier (T09)", async () => {
-    const r = await submitAssessment(body({ call_category: "existing_client_complaint" }), deps());
+  it("a complaint escalates with no tier, even if the agent sent one (T09)", async () => {
+    const r = await submitAssessment(body({ call_category: "existing_client_complaint", tier: "green" }), deps());
     expect(r.body).toMatchObject({ tier: null, action: "escalate" });
   });
 

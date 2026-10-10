@@ -59,9 +59,12 @@ export function reconcileTiers(agent: Tier | null, gemini: Tier | null): { tier:
   return { tier: "amber", conflict: true };
 }
 
-/** T3: book_consult refuses any call whose stored tier is not Green (rule 4). */
+/**
+ * T2/T3: which stored tiers may be offered slots and booked. User decision 2026-10-10 (overrides
+ * PRD rule 4): Green AND Amber book a design call; Red and untiered calls never do.
+ */
 export function canBook(storedTier: Tier | null | undefined): boolean {
-  return storedTier === "green";
+  return storedTier === "green" || storedTier === "amber";
 }
 
 /** Estimated project value (PRD section 3, step 6). Always labelled an estimate wherever it is shown. */

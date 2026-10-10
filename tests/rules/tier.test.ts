@@ -66,10 +66,11 @@ describe("Gemini second opinion", () => {
   });
 });
 
-describe("booking guard (rule 4)", () => {
-  it("only Green can book", () => {
+describe("booking guard (amended 2026-10-10)", () => {
+  it("Green and Amber can book; Red and untiered cannot", () => {
     expect(canBook("green")).toBe(true);
-    for (const t of ["amber", "red", null, undefined] as const) expect(canBook(t)).toBe(false);
+    expect(canBook("amber")).toBe(true);
+    for (const t of ["red", null, undefined] as const) expect(canBook(t)).toBe(false);
   });
 });
 

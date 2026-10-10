@@ -59,20 +59,27 @@ const sampleCallShape = {
 export interface CalRequest {
   method: string;
   path: string;
+  query: Record<string, string>;
   headers: Record<string, string>;
   body: unknown;
 }
 
 /** A scripted Cal.com: give it handlers per path, it records every request. */
-export function mockCal(handlers: { slots?: (q: URLSearchParams) => Response | Promise<Response>; book?: (body: Record<string, unknown>) => Response | Promise<Response> }) {
+export function mockCal(handlers: {
+  slots?: (q: URLSearchParams) => Response | Promise<Response>;
+  book?: (body: Record<string, unknown>) => Response | Promise<Response>;
+  list?: (q: URLSearchParams) => Response | Promise<Response>;
+}) {
   const requests: CalRequest[] = [];
   const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(String(input));
     const headers = Object.fromEntries(Object.entries((init?.headers as Record<string, string>) ?? {}).map(([k, v]) => [k.toLowerCase(), v]));
     const body = init?.body ? JSON.parse(String(init.body)) : null;
-    requests.push({ method: init?.method ?? "GET", path: url.pathname, headers, body });
+    const method = init?.method ?? "GET";
+    requests.push({ method, path: url.pathname, query: Object.fromEntries(url.searchParams), headers, body });
     if (url.pathname === "/v2/slots" && handlers.slots) return handlers.slots(url.searchParams);
-    if (url.pathname === "/v2/bookings" && handlers.book) return handlers.book(body);
+    if (url.pathname === "/v2/bookings" && method === "GET" && handlers.list) return handlers.list(url.searchParams);
+    if (url.pathname === "/v2/bookings" && method === "POST" && handlers.book) return handlers.book(body);
     return new Response("not found", { status: 404 });
   }) as typeof fetch;
   return { fetchImpl, requests };
@@ -96,7 +103,7 @@ export function deps(over: Partial<ToolDeps> & { fetchImpl?: typeof fetch; now?:
     repo: memoryRepo().repo,
     now: () => new Date("2026-10-12T05:30:00Z"), // Monday 11:00 IST
     rules: { pricing: FAKE_PRICING, hours: HOURS, assumedDealValueInr: 1_100_000 },
-    cal: { apiKey: "cal_test", baseUrl: "https://cal.test", versionSlots: "2024-09-04", versionBookings: "2026-02-25", eventTypeIds: { site_visit: 111, call: 222 }, fetchImpl },
+    cal: { apiKey: "cal_test", baseUrl: "https://cal.test", versionSlots: "2024-09-04", versionBookings: "2026-02-25", eventTypeId: 222, fetchImpl },
     placeholderEmailDomain: "example.com",
     testAgentIds: [],
     ...rest,

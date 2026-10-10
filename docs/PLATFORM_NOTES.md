@@ -56,6 +56,8 @@ Configured **per organisation** in Settings → Webhooks (a URL only). Inbound a
 
 ### 1.5 Call history API: where numbers, cost and timings come from
 `GET /api/call-history?page=&page_size=` (max 200, newest first; no filter by call ID documented). Each item has: `call_id`, `call_type`, `direction`, `call_status` (e.g. "User disconnected"), `from_number`, `to_number`, `Start_time`, `End_time`, `duration_ms`, **`call_cost`** (currency not stated, **UNVERIFIED**: probably INR), `call_dialing_at`, `call_ringing_at`, `user_picked_up_at`, `recording_api`, `call_metadata`, `post_processing_status`. Source: [Get Call History](https://docs.vaanivoice.ai/api-reference/call-history.md).
+- **Rechecked 2026-10-10:** the docs give `call_cost` **in credits**, not INR, and add `agent_id` (UUID), `agent_name`, `call_summary`, `call_transcription`. Response wrapper `{data: [...], pagination: {page, page_size, total_count, total_pages, has_next, has_previous}}`. Inbound `call_type` is `Inbound` but `direction` is `Incoming`. So the cost in INR is always duration × `VAANI_COST_PER_MIN_INR`; credits are kept in `facts.pipeline.vaani_cost_credits`.
+- **Live (2026-10-10):** our key gets 500 "Error fetching call history: 400: Invalid client_id format" (Vaani-side). The `enrich` step records the failure and the pipeline continues.
 - Plan: after `call_postprocessing`, an **`enrich`** pipeline step pages the history (first page is usually enough) to fill `from_number`, `to_number`, `started_at`, pickup time (time to answer) and `vaani_cost_inr`. If it's missing, P7 falls back to `duration × VAANI_COST_PER_MIN_INR`.
 - `GET /api/call_details/{call_id}` returns `transcription`, `entity`, `conversation_eval`, `summary`, `call_eval_tag`. Before post-processing, every field reads "Transcript is not available…". Source: [Get Call Details](https://docs.vaanivoice.ai/api-reference/call-details.md). Note: the OpenAPI path also has a `{client}` segment, so the path is **UNVERIFIED**.
 
@@ -116,6 +118,7 @@ Configured **per organisation** in Settings → Webhooks (a URL only). Inbound a
 - **Slot already taken:** the error code and body are **UNVERIFIED** (not documented). The client treats any 4xx on create as "slot unavailable", re-fetches slots, and returns `{booked:false, reason, slots}`.
 - **No idempotency key** on create booking. Idempotency comes from us: a unique `bookings.call_id` plus a "pending" row written before the Cal.com request. Source: [create booking](https://cal.com/docs/api-reference/v2/bookings/create-a-booking).
 - **Reserve a slot** (about a 5-minute hold) exists but isn't needed. Source: [API v2 reference](https://cal.com/docs/_llms/api-v2-reference.md).
+- **List bookings (reconcile):** `GET /v2/bookings` with version **`2026-05-01`** (not the create version), filters `attendeeEmail`, `eventTypeId`, `afterCreatedAt`, `limit` (1–100), cursor pagination; items have `uid, start, end, status, attendees[].email, metadata`. Source: [get all bookings](https://cal.com/docs/api-reference/v2/bookings/get-all-bookings), checked 2026-10-10. UNVERIFIED live (no booking made yet).
 - **Cancel:** `POST /v2/bookings/{uid}/cancel` (version `2026-02-25`). Source: [cancel](https://cal.com/docs/api-reference/v2/bookings/cancel-a-booking).
 - **Locations are per event type:**
   - "Aangan site visit" uses location `attendeeAddress`.

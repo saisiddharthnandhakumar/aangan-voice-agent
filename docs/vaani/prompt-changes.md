@@ -1,42 +1,35 @@
-# Changes to make in the Vaani system prompt (Phase 3)
+# Changes to make in Vaani (updated 2026-10-10, Phase 4)
 
-The backend is built to the PRD field names. These edits keep the prompt in step with it.
-Make them in the agent's system prompt, then save and run a test call.
+The user decided on 2026-10-10 that **the voice agent decides Green, Amber or Red itself from the
+rubric**, that **Green and Amber are both booked into the "Aangan design call"** (the site visit is
+no longer used), and that **Red is declined kindly with a fuller reason**. The backend stores the
+agent's tier as given; Gemini only summarises after the call.
 
-## 1. Call reference (Vaani has no call-ID variable)
-Replace every `{{call_id}}` and `{{caller_number}}` in the prompt. Add:
+## 1. Re-paste the system prompt
+Run `pnpm rubric:build && pnpm vaani:prompt` and paste `docs/vaani/system_prompt.txt` (gitignored,
+it contains the internal pricing section) into the agent. The template is
+`docs/vaani/system_prompt.template.txt`. New sections: "YOUR DECISION: GREEN, AMBER OR RED", the
+budget judgement against the internal pricing (silent), the design-call booking flow for Green and
+Amber, and the fuller Red decline.
 
-> The first time you call submit_assessment in a call, send `call_id` as an empty string. The
-> tool replies with a `call_id` such as "K7QM2P". Use exactly that value as `call_id` in every
-> later submit_assessment, check_availability and book_consult in the same call. Never make
-> one up. Always send `call_mode` as {{call_mode}}.
+## 2. Tool `submit_assessment`: add two parameters
+- `tier` (string, enum green / amber / red): "Your decision from the rubric. Required for an
+  enquiry; leave out for other call categories."
+- `tier_reason` (string): "One line: why you chose this tier. Never read aloud."
 
-## 2. Date can move (V8, acceptance test 3)
-Add to the assessment section:
+## 3. Tools `check_consult_availability` and `book_consult`: remove `consult_type`
+It is ignored now (only the design call is booked), so it can be deleted from both tools, and from
+their required lists. Leaving it in does no harm.
 
-> If submit_assessment returns action `ask_date_move`, say the `say_reason` text and wait for the
-> answer. Then call submit_assessment again with `timeline_move_asked: true` and the new timing
-> (or the same date if it cannot move), and follow the new action.
+Edit the fields by hand in each tool's edit dialog; do not use "Paste cURL" there (it would replace
+the saved X-Tool-Secret header with the placeholder). The current definitions are in
+`docs/vaani/tools.json` and `docs/vaani/curl.md`.
 
-## 3. Recording the timeline
-> `completion_needed_by` is the date the project must be complete (move-in, operational,
-> guests arriving) as YYYY-MM-DD; a month alone means the 1st of that month. A possession or
-> handover date is not a deadline: put it in `site_ready_text`.
-
-## 4. Repeat or frustrated callers
-> If the caller says they called before and heard nothing, add the flag `frustrated_repeat`.
-
-## 5. Budget
-> Never ask about budget. If the caller volunteers a number, record it in
-> `volunteered_budget_low_inr` / `volunteered_budget_high_inr` in rupees (1.5 lakh = 150000), and
-> never repeat the number back. Any figure in your words is flagged as a price leak.
-
-## 6. Reading tool replies
-> Read `message`, `callback_phrase`, `say_reason`, `spoken_confirmation` or `reason` aloud as
-> given. Never read `agent_note`, `reasons` or `tier` aloud; they are for you.
-
-## 7. Tool names in Vaani
-`submit_assessment`, `check_consult_availability` (Vaani reserves `check_availability`; same endpoint `/api/vaani/tools/check_availability`), `book_consult`.
-
-## 8. Actions (complete list)
-`offer_booking`, `callback`, `decline`, `escalate`, `close_non_enquiry`, `ask_date_move`.
+## Still true from Phase 3
+- `call_id`: empty on the first submit_assessment, then the returned 6-character value in every
+  later tool call. `call_mode` is always `{{call_mode}}`.
+- Never read `agent_note`, `reasons` or `tier` aloud.
+- Tool names: `submit_assessment`, `check_consult_availability` (endpoint
+  `/api/vaani/tools/check_availability`), `book_consult`.
+- Actions: `offer_booking` (Green and Amber), `decline` (Red), `callback`, `escalate`,
+  `close_non_enquiry`.

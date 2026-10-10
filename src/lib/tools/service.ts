@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import { z } from "zod";
 import { CalError, createBooking, getSlots, type CalConfig, type CalSlot } from "@/lib/cal/client";
 import { normalisePhone } from "@/lib/phone";
-import { assess, assessmentInputSchema, canBook, callbackWhen, normaliseBudget, WORDING, type AssessContext, type AssessmentInput } from "@/lib/rules";
+import { actionForAgentTier, assess, assessmentInputSchema, canBook, callbackWhen, normaliseBudget, WORDING, type AssessContext, type AssessmentInput } from "@/lib/rules";
 import { istParts } from "@/lib/rules/time";
 import type { CallRow, ToolsRepo } from "./repo";
 import { matchesPreference, parseTimePreference, pickSlots, slotLabel, speakList } from "./speak";
@@ -16,7 +16,8 @@ export interface ToolDeps {
   repo: ToolsRepo;
   now: () => Date;
   rules: Omit<AssessContext, "now">;
-  cal: (CalConfig & { eventTypeIds: { site_visit?: number; call?: number } }) | null;
+  /** Only the "Aangan design call" event type is booked (decision 2026-10-10). */
+  cal: (CalConfig & { eventTypeId?: number }) | null;
   placeholderEmailDomain: string;
   testAgentIds?: string[];
 }
@@ -53,6 +54,8 @@ export interface SubmitResponse {
   callback_phrase: string | null;
   say_reason: string | null;
   reasons: string[];
+  /** Instruction for the agent, never read aloud. */
+  agent_note?: string;
 }
 
 export async function submitAssessment(raw: Record<string, unknown>, deps: ToolDeps): Promise<ToolResult<SubmitResponse>> {
@@ -69,14 +72,19 @@ export async function submitAssessment(raw: Record<string, unknown>, deps: ToolD
   let call = await findCall(raw.call_id, phone, now, deps.repo);
   if (!call) call = await createCallRow(deps.repo, { phone, callMode, now });
 
+  // The agent decides the tier (decision 2026-10-10); the backend stores it as given. assess() runs
+  // only for the facts the agent does not judge: after-hours, estimated value, priority, the
+  // budget_tight note and descriptive flags. Its own tier is discarded.
   const result = assess(input, { ...deps.rules, now });
+  const tier = input.call_category === "enquiry" ? input.tier : null;
+  const action = actionForAgentTier(input.call_category, tier);
   await deps.repo.updateCall(call.id, {
     callCategory: input.call_category,
     callerName: input.caller_name ?? call.callerName,
     fromNumber: call.fromNumber ?? phone,
     calledAfterHours: result.called_after_hours,
-    tier: result.tier,
-    tierReasons: result.reasons,
+    tier,
+    tierReasons: input.tier_reason ? [input.tier_reason] : [],
     priority: result.priority,
     estimatedValueInr: result.estimated_value_inr,
     budgetLowInr: normaliseBudget(input.volunteered_budget_low_inr),
@@ -93,15 +101,26 @@ export async function submitAssessment(raw: Record<string, unknown>, deps: ToolD
     isTest: call.isTest || isTestMode(callMode),
   });
 
+  const cb = callbackWhen(now, deps.rules.hours);
+  const callbackPhrase = cb.withinHour ? WORDING.callbackWithinHour : WORDING.callbackLater(cb.when);
+  const phrase: Record<string, string | null> = {
+    offer_booking: null,
+    decline: WORDING.declineLine,
+    callback: input.call_category === "existing_client" ? WORDING.existingClientCallback : callbackPhrase,
+    escalate: WORDING.escalate,
+    close_non_enquiry: WORDING.closeNonEnquiry,
+  };
+  const missingTier = input.call_category === "enquiry" && tier === null;
   return {
     callId: call.id,
     body: {
       call_id: call.callRef,
-      tier: result.tier,
-      action: result.action,
-      callback_phrase: result.callback_phrase,
-      say_reason: result.say_reason,
-      reasons: result.reasons,
+      tier,
+      action,
+      callback_phrase: phrase[action] ?? null,
+      say_reason: null,
+      reasons: tier && input.tier_reason ? [input.tier_reason] : [],
+      ...(missingTier ? { agent_note: "No tier was sent. Decide green, amber or red from the rubric and call submit_assessment again with the same call_id." } : {}),
     },
   };
 }
@@ -158,7 +177,8 @@ export const availabilitySchema = z.object({
   call_id: z.unknown().optional(),
   preferred_date: z.preprocess((v) => (typeof v === "string" ? v.trim().slice(0, 10) : v), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).optional().catch(undefined),
   preferred_time_text: z.preprocess((v) => (typeof v === "string" ? v : null), z.string().nullable()).optional(),
-  consult_type: z.preprocess((v) => (typeof v === "string" ? v.trim().toLowerCase().replace(/[\s-]/g, "_") : v), z.enum(["site_visit", "call"])).catch("site_visit"),
+  // Only the design call is booked (decision 2026-10-10). Any value the agent sends reads as "call".
+  consult_type: z.unknown().optional().transform(() => "call" as const),
   days_to_search: z.preprocess((v) => Number(v), z.number().int().min(1).max(7)).catch(3),
 });
 
@@ -183,11 +203,11 @@ export async function checkAvailability(raw: Record<string, unknown>, deps: Tool
       body: {
         slots: [],
         message: CALENDAR_DOWN,
-        agent_note: call ? "This call is not eligible for booking. Use the callback wording." : "Unknown call_id. Call submit_assessment first and pass the call_id it returns.",
+        agent_note: call ? "This call is not eligible for booking (only Green and Amber are). Do not offer times." : "Unknown call_id. Call submit_assessment first and pass the call_id it returns.",
       },
     };
   }
-  const eventTypeId = deps.cal?.eventTypeIds[body.consult_type];
+  const eventTypeId = deps.cal?.eventTypeId;
   if (!deps.cal || !eventTypeId) {
     return { callId: call.id, body: { slots: [], message: CALENDAR_DOWN, agent_note: "Calendar not configured." } };
   }
@@ -257,11 +277,11 @@ export interface BookingResponse {
 const NOT_ELIGIBLE = "I'm not able to book that directly, but a designer will call you back to arrange a time.";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
-function confirmation(consultType: string, startIso: string, now: Date, siteArea: string | null): string {
+function confirmation(startIso: string, now: Date, hasEmail: boolean): string {
   const when = slotLabel(startIso, now);
-  return consultType === "site_visit"
-    ? `You're booked for a site visit ${when}. A designer will meet you${siteArea ? ` at ${siteArea}` : " at the site"}.`
-    : `You're booked for a call with a designer ${when}. They'll call you then.`;
+  return hasEmail
+    ? `You're booked for a design call with one of our designers ${when}. The joining details will come to your email.`
+    : `You're booked for a design call with one of our designers ${when}. The designer will call you on this number at that time.`;
 }
 
 export async function bookConsult(raw: Record<string, unknown>, deps: ToolDeps): Promise<ToolResult<BookingResponse>> {
@@ -270,16 +290,16 @@ export async function bookConsult(raw: Record<string, unknown>, deps: ToolDeps):
   const ref = normaliseRef(body.call_id);
   const call = ref ? await deps.repo.findCallByRef(ref) : null;
 
-  // Rule 4: never book a call whose stored tier is not Green.
+  // Only Green and Amber calls are booked (decision 2026-10-10); Red and unknown calls never are.
   if (!call || !canBook(call.tier)) {
     return {
       callId: call?.id ?? null,
-      body: { booked: false, reason: NOT_ELIGIBLE, agent_note: call ? "Stored tier is not Green. Use the callback wording." : "Unknown call_id." },
+      body: { booked: false, reason: NOT_ELIGIBLE, agent_note: call ? "Only Green and Amber calls can be booked." : "Unknown call_id." },
     };
   }
 
   const startMs = Date.parse(body.slot_start_iso);
-  const eventTypeId = deps.cal?.eventTypeIds[body.consult_type];
+  const eventTypeId = deps.cal?.eventTypeId;
   if (!Number.isFinite(startMs) || startMs <= now.getTime()) {
     return { callId: call.id, body: { booked: false, reason: "Sorry, I didn't catch which time you'd like.", agent_note: "slot_start_iso must be a start_iso from check_availability." } };
   }
@@ -306,7 +326,7 @@ export async function bookConsult(raw: Record<string, unknown>, deps: ToolDeps):
     if (booking.status === "accepted") {
       return {
         callId: call.id,
-        body: { booked: true, spoken_confirmation: confirmation(booking.consultType, booking.startAt.toISOString(), now, call.siteArea), agent_note: "Already booked for this call." },
+        body: { booked: true, spoken_confirmation: confirmation(booking.startAt.toISOString(), now, !booking.emailIsPlaceholder), agent_note: "Already booked for this call." },
       };
     }
     if (booking.status === "pending") {
@@ -321,7 +341,7 @@ export async function bookConsult(raw: Record<string, unknown>, deps: ToolDeps):
       eventTypeId,
       start: startIso,
       attendee: { name: body.caller_name ?? call.callerName ?? "Aangan caller", email, timeZone: "Asia/Kolkata", ...(phone ? { phoneNumber: phone } : {}) },
-      ...(body.consult_type === "site_visit" ? { location: { type: "attendeeAddress", address: body.site_area ?? "To be confirmed by phone" } } : {}),
+      // No location: the design-call event type uses its own Google Meet integration.
       metadata: { call_ref: call.callRef ?? "" },
       notes: [
         "Booked by the Aangan voice agent.",
@@ -344,7 +364,7 @@ export async function bookConsult(raw: Record<string, unknown>, deps: ToolDeps):
       callerName: call.callerName ?? body.caller_name,
       fromNumber: call.fromNumber ?? phone,
     });
-    return { callId: call.id, body: { booked: true, spoken_confirmation: confirmation(body.consult_type, cal.start ?? startIso, now, body.site_area) } };
+    return { callId: call.id, body: { booked: true, spoken_confirmation: confirmation(cal.start ?? startIso, now, Boolean(realEmail)) } };
   } catch (err) {
     const timedOut = err instanceof CalError && (err.kind === "timeout" || err.kind === "network");
     if (timedOut) {

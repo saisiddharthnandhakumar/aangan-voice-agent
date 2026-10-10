@@ -3,7 +3,7 @@
   "tools": [
     {
       "name": "submit_assessment",
-      "description": "Record what the caller has told you against the five criteria. Call it before offering a booking or ending the call, and again if the caller changes something important. It returns the call_id to reuse and the action you must follow.",
+      "description": "Record what the caller has told you, the five criteria and YOUR tier decision (green, amber or red) from the rubric. Call it before offering a booking or ending the call, and again if the caller changes something important. It returns the call_id to reuse and the action to follow.",
       "method": "POST",
       "url": "https://YOUR-APP.vercel.app/api/vaani/tools/submit_assessment",
       "headers": {
@@ -189,6 +189,19 @@
             "type": "string",
             "description": "Comma-separated, any of: structural_changes, wants_human, frustrated_repeat. Empty if none."
           },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "green",
+              "amber",
+              "red"
+            ],
+            "description": "Your decision from the rubric. Required for an enquiry; leave out for other call categories."
+          },
+          "tier_reason": {
+            "type": "string",
+            "description": "One line: why you chose this tier. Never read aloud."
+          },
           "timeline_move_asked": {
             "type": "boolean",
             "description": "True once you have asked whether the date can move"
@@ -205,7 +218,7 @@
           "decision_maker_status"
         ]
       },
-      "returns": "{ call_id, tier, action: offer_booking | callback | decline | escalate | close_non_enquiry | ask_date_move, callback_phrase, say_reason, reasons }",
+      "returns": "{ call_id, tier, action: offer_booking | callback | decline | escalate | close_non_enquiry, callback_phrase, say_reason, reasons, agent_note? }",
       "example": {
         "call_id": "",
         "call_mode": "{{call_mode}}",
@@ -239,12 +252,14 @@
         "decision_maker_status": "pass",
         "decision_maker_evidence": "my husband and I decide",
         "flags": "",
+        "tier": "green",
+        "tier_reason": "Pune 3BHK, design and execution, done by March, owners decide",
         "timeline_move_asked": false
       }
     },
     {
       "name": "check_consult_availability",
-      "description": "Look up open consultation slots from a date the caller chose. Returns up to three slots with the wording to read aloud.",
+      "description": "Look up open design-call slots from a date the caller chose. Only for Green or Amber calls. Returns up to three slots with the wording to read aloud.",
       "method": "POST",
       "url": "https://YOUR-APP.vercel.app/api/vaani/tools/check_availability",
       "headers": {
@@ -270,13 +285,6 @@
             "type": "string",
             "description": "For example morning, evening, weekend, Saturday. Leave out if not given."
           },
-          "consult_type": {
-            "type": "string",
-            "enum": [
-              "site_visit",
-              "call"
-            ]
-          },
           "days_to_search": {
             "type": "integer",
             "minimum": 1,
@@ -286,8 +294,7 @@
         },
         "required": [
           "call_id",
-          "preferred_date",
-          "consult_type"
+          "preferred_date"
         ]
       },
       "returns": "{ slots: [{ start_iso, label }], message, agent_note? }  Read message aloud; never read agent_note.",
@@ -296,13 +303,12 @@
         "call_mode": "{{call_mode}}",
         "preferred_date": "2026-10-14",
         "preferred_time_text": "evening",
-        "consult_type": "site_visit",
         "days_to_search": 3
       }
     },
     {
       "name": "book_consult",
-      "description": "Book the slot the caller chose. Only works for calls the assessment marked offer_booking. Pass start_iso exactly as check_availability returned it.",
+      "description": "Book the design call at the slot the caller chose. Only works for Green or Amber calls. Pass start_iso exactly as check_consult_availability returned it.",
       "method": "POST",
       "url": "https://YOUR-APP.vercel.app/api/vaani/tools/book_consult",
       "headers": {
@@ -324,16 +330,9 @@
             "type": "string",
             "description": "start_iso of the chosen slot, unchanged"
           },
-          "consult_type": {
-            "type": "string",
-            "enum": [
-              "site_visit",
-              "call"
-            ]
-          },
           "site_area": {
             "type": "string",
-            "description": "Area or address for a site visit. Leave out if not given."
+            "description": "Area or locality of the site, for the designer's notes. Leave out if not given."
           },
           "caller_name": {
             "type": "string",
@@ -354,8 +353,7 @@
         },
         "required": [
           "call_id",
-          "slot_start_iso",
-          "consult_type"
+          "slot_start_iso"
         ]
       },
       "returns": "{ booked: true, spoken_confirmation } or { booked: false, reason, slots? }  Say spoken_confirmation or reason.",
@@ -363,7 +361,6 @@
         "call_id": "ABC234",
         "call_mode": "{{call_mode}}",
         "slot_start_iso": "2026-10-14T10:30:00.000Z",
-        "consult_type": "site_visit",
         "site_area": "Kothrud",
         "caller_name": "Priya",
         "phone": "9876543210",

@@ -91,10 +91,12 @@ describe("AT7: vague timing after one question is Amber", () => {
   });
 });
 
-describe("AT8: book_consult on an Amber or Red call is refused", () => {
-  it("only Green is bookable", () => {
-    expect(canBook("amber")).toBe(false);
+// AT8 as amended by the user on 2026-10-10: Amber is booked too; only Red (and untiered) is refused.
+describe("AT8 (amended): book_consult on a Red call is refused", () => {
+  it("Green and Amber are bookable, Red is not", () => {
     expect(canBook("red")).toBe(false);
+    expect(canBook(null)).toBe(false);
+    expect(canBook("amber")).toBe(true);
     expect(canBook("green")).toBe(true);
   });
 });
