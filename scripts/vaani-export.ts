@@ -4,7 +4,7 @@
  * are never written: the files use YOUR-APP and YOUR_VAANI_TOOL_SECRET placeholders.
  */
 import { writeFileSync } from "node:fs";
-import { CALL_CATEGORIES, CRITERION_STATUSES, PROJECT_TYPES, SCOPE_TYPES } from "../src/lib/rules/types";
+import { CALL_CATEGORIES, PROJECT_TYPES, SCOPE_TYPES } from "../src/lib/rules/types";
 
 const BASE = "https://YOUR-APP.vercel.app/api/vaani/tools";
 const str = (description: string) => ({ type: ["string", "null"], description });
