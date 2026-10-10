@@ -363,7 +363,7 @@
       }
     },
     {
-      "name": "check_availability",
+      "name": "check_consult_availability",
       "description": "Look up open consultation slots from a date the caller chose. Returns up to three slots with the wording to read aloud.",
       "method": "POST",
       "url": "https://YOUR-APP.vercel.app/api/vaani/tools/check_availability",

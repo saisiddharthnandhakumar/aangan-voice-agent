@@ -35,5 +35,8 @@ Add to the assessment section:
 > Read `message`, `callback_phrase`, `say_reason`, `spoken_confirmation` or `reason` aloud as
 > given. Never read `agent_note`, `reasons` or `tier` aloud; they are for you.
 
-## 7. Actions (complete list)
+## 7. Tool names in Vaani
+`submit_assessment`, `check_consult_availability` (Vaani reserves `check_availability`; same endpoint `/api/vaani/tools/check_availability`), `book_consult`.
+
+## 8. Actions (complete list)
 `offer_booking`, `callback`, `decline`, `escalate`, `close_non_enquiry`, `ask_date_move`.

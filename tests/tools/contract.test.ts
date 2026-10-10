@@ -7,15 +7,15 @@ import { availabilitySchema, bookingSchema } from "@/lib/tools/service";
 const tools = JSON.parse(readFileSync("docs/vaani/tools.json", "utf8")).tools as Array<{ name: string; parameters: { properties: Record<string, unknown> } }>;
 const accepted: Record<string, Set<string>> = {
   submit_assessment: new Set([...Object.keys(assessmentInputSchema.shape), "call_mode"]),
-  check_availability: new Set([...Object.keys(availabilitySchema.shape), "call_mode"]),
+  check_consult_availability: new Set([...Object.keys(availabilitySchema.shape), "call_mode"]),
   book_consult: new Set([...Object.keys(bookingSchema.shape), "call_mode"]),
 };
 
 describe("docs/vaani/tools.json matches the endpoints", () => {
   it("defines exactly the three PRD tools", () => {
-    expect(tools.map((t) => t.name)).toEqual(["submit_assessment", "check_availability", "book_consult"]);
+    expect(tools.map((t) => t.name)).toEqual(["submit_assessment", "check_consult_availability", "book_consult"]);
   });
-  it.each(["submit_assessment", "check_availability", "book_consult"])("%s sends only accepted fields", (name) => {
+  it.each(["submit_assessment", "check_consult_availability", "book_consult"])("%s sends only accepted fields", (name) => {
     const tool = tools.find((t) => t.name === name)!;
     expect(Object.keys(tool.parameters.properties).filter((k) => !accepted[name].has(k))).toEqual([]);
   });

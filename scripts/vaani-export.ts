@@ -107,7 +107,9 @@ const tools = [
     },
   },
   {
-    name: "check_availability",
+    // Vaani reserves the name "check_availability" (it reports "already exists"), so the
+    // function is registered as check_consult_availability. The endpoint path is unchanged.
+    name: "check_consult_availability",
     description: "Look up open consultation slots from a date the caller chose. Returns up to three slots with the wording to read aloud.",
     method: "POST",
     url: `${BASE}/check_availability`,

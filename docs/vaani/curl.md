@@ -20,7 +20,7 @@ curl -X POST 'https://YOUR-APP.vercel.app/api/vaani/tools/submit_assessment' \
 
 Returns: { call_id, tier, action: offer_booking | callback | decline | escalate | close_non_enquiry | ask_date_move, callback_phrase, say_reason, reasons }
 
-## check_availability
+## check_consult_availability
 
 Look up open consultation slots from a date the caller chose. Returns up to three slots with the wording to read aloud.
 
